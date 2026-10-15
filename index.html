@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Car Price Predictor - Multiple Linear Regression</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- PapaParse MUST load before script.js so the model core can parse the CSV. -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+
+  <main class="container">
+    <header class="hero">
+      <span class="hero-badge">Multiple Linear Regression</span>
+      <h1 class="hero-title">Car Price <span class="accent">Predictor</span></h1>
+      <p class="hero-subtitle">
+        Enter a vehicle's specifications and let an in-browser machine-learning
+        model estimate its market price in millions of UZS.
+      </p>
+    </header>
+
+    <!-- Shown while the model is loading/training. -->
+    <section id="status-card" class="glass-card status-card" aria-live="polite">
+      <div class="loader-ring" aria-hidden="true"></div>
+      <p id="status-text">Loading dataset and training the model…</p>
+    </section>
+
+    <!-- Shown if CarModel.ready rejects (e.g. opened via file://). -->
+    <section id="error-card" class="glass-card error-card" hidden aria-live="assertive">
+      <h2 class="error-title">⚠️ Unable to load the model</h2>
+      <p id="error-text"></p>
+      <p class="error-hint">
+        Serve this folder over HTTP, for example:<br />
+        <code>python3 -m http.server 8000</code><br />
+        then open <code>http://localhost:8000/</code>.
+      </p>
+    </section>
+
+    <!-- The prediction form (populated dynamically from CarModel.featureNames). -->
+    <form id="predict-form" class="glass-card form-card" hidden novalidate>
+      <div class="form-head">
+        <h2>Vehicle specifications</h2>
+        <span id="model-quality" class="model-quality"></span>
+      </div>
+
+      <div id="fields" class="fields-grid"><!-- inputs injected here --></div>
+
+      <button type="submit" id="predict-btn" class="predict-btn">
+        <span class="btn-label">Predict Price</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+    </form>
+
+    <!-- Result card (revealed after a successful prediction). -->
+    <section id="result-card" class="glass-card result-card" hidden aria-live="polite">
+      <p class="result-label">Estimated Price</p>
+      <p class="result-value"><span id="result-amount">0.00</span> <span class="result-unit">mln UZS</span></p>
+      <p class="result-note">Based on a ridge-regularized multiple linear regression fit.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Built with vanilla HTML, CSS &amp; JavaScript · PapaParse for CSV parsing</p>
+  </footer>
+
+  <script>
+    // ---------------------------------------------------------------
+    // UI wiring (FEAT-002). Consumes the window.CarModel interface
+    // published by script.js. No feature names are hard-coded here;
+    // the form is generated from CarModel.featureNames.
+    // ---------------------------------------------------------------
+    (function () {
+      'use strict';
+
+      // Friendly labels + input attributes keyed by raw column name.
+      // Any feature not listed falls back to a sensible default so the
+      // form still works if the dataset changes.
+      var FIELD_META = {
+        year:        { label: 'Year',          step: '1',   placeholder: 'e.g. 2020',   defaultValue: 2020,   min: '1950', max: '2100' },
+        mileage_km:  { label: 'Mileage (km)',  step: '1',   placeholder: 'e.g. 110000', defaultValue: 110000, min: '0' },
+        engine_l:    { label: 'Engine (L)',    step: '0.1', placeholder: 'e.g. 1.5',    defaultValue: 1.5,    min: '0' },
+        horsepower:  { label: 'Horsepower',    step: '1',   placeholder: 'e.g. 130',    defaultValue: 130,    min: '0' },
+        age_years:   { label: 'Age (years)',   step: '1',   placeholder: 'e.g. 6',      defaultValue: 6,      min: '0' }
+      };
+
+      function prettifyName(name) {
+        return name
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+      }
+
+      function metaFor(name) {
+        return FIELD_META[name] || {
+          label: prettifyName(name),
+          step: 'any',
+          placeholder: 'Enter a value',
+          defaultValue: '',
+          min: undefined
+        };
+      }
+
+      var statusCard = document.getElementById('status-card');
+      var errorCard  = document.getElementById('error-card');
+      var errorText  = document.getElementById('error-text');
+      var form       = document.getElementById('predict-form');
+      var fields     = document.getElementById('fields');
+      var predictBtn = document.getElementById('predict-btn');
+      var resultCard = document.getElementById('result-card');
+      var resultAmt  = document.getElementById('result-amount');
+      var modelQuality = document.getElementById('model-quality');
+
+      function buildForm(featureNames) {
+        fields.innerHTML = '';
+        featureNames.forEach(function (name) {
+          var meta = metaFor(name);
+
+          var group = document.createElement('div');
+          group.className = 'field-group';
+
+          var label = document.createElement('label');
+          label.className = 'field-label';
+          label.setAttribute('for', 'f-' + name);
+          label.textContent = meta.label;
+
+          var input = document.createElement('input');
+          input.className = 'field-input';
+          input.type = 'number';
+          input.id = 'f-' + name;
+          input.name = name;
+          input.step = meta.step;
+          input.placeholder = meta.placeholder;
+          input.required = true;
+          if (meta.min !== undefined) input.min = meta.min;
+          if (meta.max !== undefined) input.max = meta.max;
+          if (meta.defaultValue !== '' && meta.defaultValue !== undefined) {
+            input.value = meta.defaultValue;
+          }
+
+          var errorMsg = document.createElement('span');
+          errorMsg.className = 'field-error';
+          errorMsg.id = 'err-' + name;
+
+          // Clear inline error as the user corrects the field.
+          input.addEventListener('input', function () {
+            group.classList.remove('invalid');
+            errorMsg.textContent = '';
+          });
+
+          group.appendChild(label);
+          group.appendChild(input);
+          group.appendChild(errorMsg);
+          fields.appendChild(group);
+        });
+      }
+
+      function readAndValidate(featureNames) {
+        var values = {};
+        var ok = true;
+        featureNames.forEach(function (name) {
+          var input = document.getElementById('f-' + name);
+          var group = input.closest('.field-group');
+          var errEl = document.getElementById('err-' + name);
+          var raw = input.value.trim();
+          var num = parseFloat(raw);
+
+          if (raw === '' || !isFinite(num)) {
+            ok = false;
+            group.classList.add('invalid');
+            errEl.textContent = 'Please enter a valid number.';
+          } else {
+            group.classList.remove('invalid');
+            errEl.textContent = '';
+            values[name] = num;
+          }
+        });
+        return ok ? values : null;
+      }
+
+      function showResult(price) {
+        resultAmt.textContent = price.toFixed(2);
+        resultCard.hidden = false;
+        // Re-trigger the entrance animation each time.
+        resultCard.classList.remove('reveal');
+        // Force reflow so the animation restarts.
+        void resultCard.offsetWidth;
+        resultCard.classList.add('reveal');
+        resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      function setCalculating(isCalculating) {
+        predictBtn.classList.toggle('is-loading', isCalculating);
+        predictBtn.disabled = isCalculating;
+      }
+
+      // ----- Bootstrap once the model is ready -----------------------
+      // script.js is deferred, so window.CarModel is published after HTML
+      // parsing finishes. DOMContentLoaded fires AFTER deferred scripts
+      // execute, guaranteeing CarModel exists here.
+      function bootstrap() {
+        if (!window.CarModel) {
+          statusCard.hidden = true;
+          errorText.textContent =
+            'The model core (script.js) failed to load. Ensure script.js and PapaParse are reachable.';
+          errorCard.hidden = false;
+          errorCard.classList.add('reveal');
+          return;
+        }
+        window.CarModel.ready.then(function () {
+        var featureNames = window.CarModel.featureNames;
+
+        statusCard.hidden = true;
+        form.hidden = false;
+        form.classList.add('reveal');
+
+        buildForm(featureNames);
+
+        if (typeof window.CarModel.r2 === 'number') {
+          var pct = (window.CarModel.r2 * 100).toFixed(2);
+          modelQuality.textContent = 'Model R² ' + pct + '%';
+        }
+
+        form.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          var values = readAndValidate(featureNames);
+          if (!values) {
+            resultCard.hidden = true;
+            return;
+          }
+
+          setCalculating(true);
+          resultCard.hidden = true;
+
+          // Brief delay so the calculating animation is visible even
+          // though the math itself is near-instant.
+          setTimeout(function () {
+            try {
+              var price = window.CarModel.predict(values);
+              if (!isFinite(price)) {
+                throw new Error('Prediction returned a non-finite value.');
+              }
+              showResult(price);
+            } catch (err) {
+              console.error('[UI] Prediction failed:', err);
+              resultAmt.textContent = 'N/A';
+              resultCard.hidden = false;
+              resultCard.querySelector('.result-note').textContent =
+                'Prediction failed: ' + err.message;
+            } finally {
+              setCalculating(false);
+            }
+          }, 650);
+        });
+        }).catch(function (err) {
+          statusCard.hidden = true;
+          form.hidden = true;
+          errorText.textContent = err && err.message ? err.message : String(err);
+          errorCard.hidden = false;
+          errorCard.classList.add('reveal');
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootstrap);
+      } else {
+        bootstrap();
+      }
+    })();
+  </script>
+</body>
+</html>
