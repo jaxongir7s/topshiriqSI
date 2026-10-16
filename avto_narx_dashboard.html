@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Avto narx laboratoriyasi: regressiya, k-NN va K-means</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1F8; --surface:#FFFFFF; --surface2:#F5F7FC; --ink:#10192B; --muted:#58667D; --line:#DAE1EC;
+  --accent:#4F46E5; --accent2:#0EA5E9; --accent-ink:#FFFFFF; --accent-soft:#E7E6FD;
+  --err:#B42318; --err-soft:#FDECEA; --pos:#0F9D8A; --neg:#D6336C; --c1:#D99A06; --c3:#2F5BEA; --c4:#7C4DFF;
+  --hl:#FFF4CC; --shadow:0 1px 2px rgba(16,25,43,.05),0 12px 32px rgba(16,25,43,.08);
+  --glass:rgba(255,255,255,.66); --glass-b:rgba(255,255,255,.7); --orb1:rgba(79,70,229,.22); --orb2:rgba(14,165,233,.2);
+  box-sizing:border-box;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#090F1C; --surface:#121B2D; --surface2:#182337; --ink:#E8EEF8; --muted:#98A6BD; --line:#24314A;
+    --accent:#8B93FF; --accent2:#38BDF8; --accent-ink:#0A101D; --accent-soft:#222B52;
+    --err:#FF8A80; --err-soft:#3A1F1F; --pos:#2CC7B0; --neg:#FF6B9A; --c1:#F0B429; --c3:#6C8CFF; --c4:#A28BFF;
+    --hl:#3C3411; --shadow:0 1px 2px rgba(0,0,0,.4),0 14px 36px rgba(0,0,0,.38);
+    --glass:rgba(18,27,45,.6); --glass-b:rgba(255,255,255,.08); --orb1:rgba(139,147,255,.2); --orb2:rgba(56,189,248,.16);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#090F1C; --surface:#121B2D; --surface2:#182337; --ink:#E8EEF8; --muted:#98A6BD; --line:#24314A;
+  --accent:#8B93FF; --accent2:#38BDF8; --accent-ink:#0A101D; --accent-soft:#222B52;
+  --err:#FF8A80; --err-soft:#3A1F1F; --pos:#2CC7B0; --neg:#FF6B9A; --c1:#F0B429; --c3:#6C8CFF; --c4:#A28BFF;
+  --hl:#3C3411; --shadow:0 1px 2px rgba(0,0,0,.4),0 14px 36px rgba(0,0,0,.38);
+  --glass:rgba(18,27,45,.6); --glass-b:rgba(255,255,255,.08); --orb1:rgba(139,147,255,.2); --orb2:rgba(56,189,248,.16);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:84px;scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%;transition:background-color .35s,color .35s;min-height:100vh}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.bg i{position:absolute;border-radius:50%;filter:blur(80px);animation:float 18s ease-in-out infinite}
+.bg i:nth-child(1){width:420px;height:420px;left:-100px;top:-120px;background:var(--orb1)}
+.bg i:nth-child(2){width:380px;height:380px;right:-90px;top:30%;background:var(--orb2);animation-delay:-7s}
+.bg i:nth-child(3){width:320px;height:320px;left:35%;bottom:-140px;background:var(--orb1);animation-delay:-12s}
+@keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(36px,-30px)}}
+h1,h2,h3{font-family:"Plus Jakarta Sans","Inter",system-ui,sans-serif;line-height:1.15;margin:0;letter-spacing:-.015em}
+h2{font-size:clamp(22px,3.6vw,30px);font-weight:800}
+h3{font-size:18px;font-weight:700}
+h4{font-family:"Plus Jakarta Sans",sans-serif;font-size:16px;margin:16px 0 6px}
+p{margin:0 0 .8em}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.9em}
+.wrap{max-width:1180px;margin:0 auto;padding:0 18px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.grad{background:linear-gradient(100deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* sticky header with navigation */
+.top{position:sticky;top:0;z-index:20;background:var(--glass);border-bottom:1px solid var(--glass-b);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);box-shadow:0 6px 24px rgba(16,25,43,.06);transition:background-color .35s}
+.bar{display:flex;align-items:center;gap:16px;padding-top:10px;padding-bottom:10px}
+.brand{display:flex;align-items:center;gap:10px;font-family:"Plus Jakarta Sans",sans-serif;font-weight:800;font-size:17px;white-space:nowrap}
+.brand svg{flex:none;filter:drop-shadow(0 4px 10px rgba(79,70,229,.35))}
+.brand small{display:block;font-family:"Inter",sans-serif;font-weight:500;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+nav.tabs{flex:1;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;justify-content:center;min-width:0}
+nav.tabs::-webkit-scrollbar{display:none}
+.tab{font:inherit;font-weight:600;font-size:14.5px;cursor:pointer;border:0;background:none;color:var(--muted);padding:9px 14px;border-radius:10px;white-space:nowrap;position:relative;transition:color .2s,background-color .2s}
+.tab::after{content:"";position:absolute;left:14px;right:14px;bottom:2px;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transform:scaleX(0);transition:transform .25s}
+.tab:hover{color:var(--ink);background:var(--accent-soft)}
+.tab[aria-selected=true]{color:var(--ink)}
+.tab[aria-selected=true]::after{transform:scaleX(1)}
+.themebtn{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex:none;transition:transform .2s,border-color .2s,box-shadow .2s}
+.themebtn:hover{border-color:var(--accent);transform:rotate(18deg) scale(1.06);box-shadow:var(--shadow)}
+@media (max-width:900px){
+  .bar{flex-wrap:wrap;gap:6px 12px}
+  .brand{flex:1}
+  nav.tabs{order:3;flex-basis:100%;justify-content:flex-start;padding-bottom:2px}
+  .brand small{display:none}
+}
+
+/* layout */
+main{padding-top:26px;padding-bottom:56px}
+section.view{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+section.view[hidden]{display:none}
+section.view.enter>*{animation:rise .5s both}
+section.view.enter>*:nth-child(2){animation-delay:.05s}
+section.view.enter>*:nth-child(3){animation-delay:.1s}
+section.view.enter>*:nth-child(4){animation-delay:.15s}
+section.view.enter>*:nth-child(5){animation-delay:.2s}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.stack{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}
+.grid2>*,.grid3>*,.stack>*{min-width:0}
+.pagehead{display:grid;gap:8px}
+.pagehead p{color:var(--muted);max-width:78ch;margin:0}
+.pagehead b{color:var(--ink)}
+.panel{background:var(--glass);border:1px solid var(--glass-b);border-radius:18px;padding:18px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);transition:background-color .35s,border-color .2s,transform .2s}
+.panel>h3{margin-bottom:4px}
+.hint{color:var(--muted);font-size:14px;margin:0 0 12px}
+.err{color:var(--err);background:var(--err-soft);padding:9px 13px;border-radius:10px;display:block;margin-top:12px}
+.warn{background:var(--hl);border-radius:10px;padding:9px 13px;font-size:14px;margin:10px 0 0}
+.ok{background:var(--accent-soft);border-radius:10px;padding:9px 13px;font-size:14px;margin:10px 0 0}
+
+/* kpi + upload */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:var(--glass);border:1px solid var(--glass-b);border-radius:16px;padding:12px 16px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:transform .2s,border-color .2s}
+.kpi:hover{transform:translateY(-3px);border-color:var(--accent)}
+.kpi b{display:block;font-family:"Plus Jakarta Sans",sans-serif;font-size:clamp(22px,3.6vw,30px);line-height:1.1}
+.kpi span{color:var(--muted);font-size:13px}
+.drop{position:relative;display:flex;flex-direction:column;gap:6px;align-items:flex-start;border:2px dashed var(--line);border-radius:18px;padding:18px 20px;background:var(--glass);transition:border-color .2s,background-color .2s,transform .2s;cursor:pointer;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop.over{transform:scale(1.01)}
+.drop strong{font-family:"Plus Jakarta Sans",sans-serif;font-size:18px}
+.drop small{color:var(--muted)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.drop:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+.btn{font:inherit;font-weight:500;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 14px;transition:transform .15s,border-color .15s,box-shadow .15s}
+.btn:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
+.btn:active{transform:translateY(0)}
+.btn.primary{background:linear-gradient(100deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+
+/* forms */
+.field{margin-bottom:14px}
+.field label.lab{display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:14px;margin-bottom:6px}
+.field label.lab small,.field label.lab b{color:var(--muted);font-weight:400}
+.field label.lab b{color:var(--accent);font-weight:700}
+.field .row{display:flex;gap:12px;align-items:center}
+input[type=number],select{font:inherit;color:var(--ink);background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0;transition:border-color .15s,box-shadow .15s}
+input[type=number]{width:112px}
+input[type=number]:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none}
+select{max-width:100%}
+input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:24px}
+input[type=checkbox]{accent-color:var(--accent);width:17px;height:17px}
+.field.off{opacity:.5}
+.field .why{display:none;font-size:12.5px;color:var(--muted);margin-top:4px}
+.field.off .why{display:block}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 22px;align-items:start}
+.checks{display:flex;flex-wrap:wrap;gap:6px 14px}
+.checks label{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
+.roles{display:grid;gap:8px}
+.role{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;transition:border-color .15s}
+.role:hover{border-color:var(--accent)}
+.role .why{flex-basis:100%;font-size:13px;color:var(--muted);margin-left:28px}
+
+/* details */
+details{background:var(--glass);border:1px solid var(--glass-b);border-radius:18px;box-shadow:var(--shadow);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+summary{cursor:pointer;padding:15px 18px;font-family:"Plus Jakarta Sans",sans-serif;font-weight:700;font-size:17px;list-style:none;display:flex;gap:12px;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg);transition:transform .2s;flex:none}
+details[open]>summary::before{transform:rotate(45deg)}
+details>.body{padding:0 18px 18px;animation:rise .3s both}
+.step{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:13px;flex:none}
+
+/* tables */
+.scroll{overflow-x:auto;max-width:100%;border:1px solid var(--line);border-radius:12px}
+.scroll.tall{max-height:380px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{background:var(--surface2);font-weight:600;position:sticky;top:0;z-index:1}
+td:first-child,th:first-child{text-align:left}
+tr:last-child td{border-bottom:0}
+tbody tr{transition:background-color .15s}
+tbody tr:hover td{background:var(--accent-soft)}
+table.mat td,table.mat th{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px}
+table.left th,table.left td{text-align:left}
+td.sep,th.sep{border-left:2px solid var(--line)}
+tr.hl td{background:var(--hl)}
+td.wrap2{white-space:normal;min-width:240px;text-align:left}
+.tag{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:600;color:#fff;background:var(--muted)}
+.tag.t{background:var(--accent)}.tag.f{background:var(--pos)}.tag.d{background:var(--c1);color:#1b1500}.tag.o{background:var(--muted)}
+.formula{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:11px 15px;font-family:"JetBrains Mono",monospace;font-size:13.5px;overflow-x:auto;white-space:nowrap;margin:8px 0}
+.stat{display:flex;flex-wrap:wrap;gap:10px 30px;margin:6px 0 14px}
+.stat div{min-width:92px}
+.stat b{display:block;font-family:"Plus Jakarta Sans",sans-serif;font-size:26px;line-height:1.1}
+.stat span{color:var(--muted);font-size:13px}
+
+/* charts */
+svg.chart{width:100%;height:auto;display:block}
+svg.chart text{fill:var(--muted);font-size:11px;font-family:"Inter",sans-serif}
+svg.chart text.v{fill:var(--ink);font-weight:600}
+svg.chart text.halo{fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;font-weight:600}
+svg.chart circle{transition:r .15s}
+svg.chart circle:hover{r:8}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--muted);margin:8px 0 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.vote{display:flex;height:28px;border-radius:9px;overflow:hidden;margin:8px 0 6px}
+.vote div{display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;min-width:0;transition:flex .4s}
+
+/* result cards */
+.rcard{position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
+.rcard:hover{transform:translateY(-4px);border-color:var(--accent)}
+.rcard .lbl{font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.rcard .big{font-family:"Plus Jakarta Sans",sans-serif;font-weight:800;font-size:clamp(34px,6vw,50px);line-height:1.08;margin:6px 0 2px}
+.rcard .unit{font-size:.36em;font-weight:700;color:var(--muted);margin-left:8px}
+.rcard::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--bar,linear-gradient(90deg,var(--accent),var(--accent2)))}
+.pulse{animation:pulse .55s ease}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--accent-soft)}60%{box-shadow:0 0 0 14px transparent}100%{box-shadow:var(--shadow)}}
+
+/* theory */
+.prose{max-width:80ch}
+.prose li{margin-bottom:4px}
+.prose ol,.prose ul{margin:0 0 .8em;padding-left:22px}
+.pros{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:10px}
+.pros>div{border-radius:14px;padding:12px 14px;font-size:14.5px}
+.pros .good{background:color-mix(in srgb,var(--pos) 14%,transparent)}
+.pros .bad{background:color-mix(in srgb,var(--neg) 12%,transparent)}
+.pros b{display:block;margin-bottom:4px}
+.pros ul{margin:0;padding-left:18px}
+footer{color:var(--muted);font-size:13.5px;padding-bottom:28px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-delay:0s!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="top">
+  <div class="wrap bar">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#0EA5E9"/></linearGradient></defs><rect width="34" height="34" rx="10" fill="url(#lg)"/><path d="M7 22l5-6 5 3 8-9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="16" r="2" fill="#fff"/><circle cx="17" cy="19" r="2" fill="#fff"/><circle cx="25" cy="10" r="2" fill="#fff"/></svg>
+      <span>Avto narx laboratoriyasi<small>Sun’iy intellekt asoslari</small></span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Bo‘limlar">
+      <button class="tab" role="tab" id="t-data" aria-controls="v-data" data-tab="data" aria-selected="true">Ma’lumot</button>
+      <button class="tab" role="tab" id="t-reg" aria-controls="v-reg" data-tab="reg" aria-selected="false" tabindex="-1">Chiziqli regressiya</button>
+      <button class="tab" role="tab" id="t-knn" aria-controls="v-knn" data-tab="knn" aria-selected="false" tabindex="-1">k-NN</button>
+      <button class="tab" role="tab" id="t-km" aria-controls="v-km" data-tab="km" aria-selected="false" tabindex="-1">K-means</button>
+      <button class="tab" role="tab" id="t-cmp" aria-controls="v-cmp" data-tab="cmp" aria-selected="false" tabindex="-1">Taqqoslash</button>
+      <button class="tab" role="tab" id="t-theory" aria-controls="v-theory" data-tab="theory" aria-selected="false" tabindex="-1">Algoritmlar haqida</button>
+    </nav>
+    <button class="themebtn" id="themebtn" type="button" aria-label="Qorong‘i yoki yorug‘ rejimni almashtirish" title="Qorong‘i / yorug‘ rejim"><span id="themeicon" aria-hidden="true">☾</span></button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 1. MA'LUMOT -->
+  <section class="view enter" id="v-data" role="tabpanel" aria-labelledby="t-data">
+    <div class="pagehead">
+      <h2>Avtomobil narxlarini <span class="grad">uchta algoritm bilan</span> o‘rganamiz</h2>
+      <p>Barcha algoritmlar bir xil jadvaldan foydalanadi. Nomida <b>narx</b> so‘zi bor son ustuni — <b>natija</b> (biz bashorat qiladigan qiymat), qolgan son ustunlari — <b>xususiyatlar</b>. Hamma hisob-kitob brauzeringizning o‘zida bajariladi.</p>
+    </div>
+    <div class="kpis" id="kpis" aria-live="polite"></div>
+    <label class="drop" id="drop">
+      <strong>CSV faylni yuklash</strong>
+      <small>Faylni shu yerga tashlang yoki bosib tanlang (masalan, 01_car_prices.csv).</small>
+      <small id="fileinfo"></small>
+      <input type="file" id="file" accept=".csv,text/csv,text/plain">
+    </label>
+    <div class="btns" style="margin-top:-6px"><button class="btn" id="resetdata" type="button">Namuna ma’lumotga qaytish</button></div>
+    <div id="loaderr" role="alert"></div>
+    <div id="notice"></div>
+    <div class="grid2">
+      <div class="panel"><h3>Ma’lumotlar jadvali</h3><p class="hint" id="dinfo"></p><div id="dtable"></div></div>
+      <div class="panel"><h3>Xususiyatlarni tanlash</h3><p class="hint">Modelda ishlatiladigan xususiyatlarni belgilang yoki belgisini oling.</p><div id="droles"></div>
+        <h3 style="margin-top:20px">Tavsifiy statistika</h3><p class="hint">Har bir ustun bo‘yicha eng kichik (min), eng katta (maks), o‘rtacha va standart og‘ish (σ).</p><div id="dstats"></div></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h3>Narx bilan bog‘liqlik</h3><p class="hint">Pearson korrelyatsiyasi r: +1 bo‘lsa xususiyat oshganda narx ham oshadi, −1 bo‘lsa narx kamayadi, 0 bo‘lsa chiziqli bog‘liqlik yo‘q.</p><div id="dcorr"></div></div>
+      <div class="panel"><h3>Pearson korrelyatsiya matritsasi</h3><p class="hint">Bir-biri bilan kuchli bog‘langan xususiyatlar o‘xshash ma’lumot beradi (multikollinearlik).</p><div id="dheat"></div></div>
+    </div>
+    <div class="panel"><h3>Xususiyat va narx grafigi</h3><p class="hint">Tanlangan bitta xususiyat bo‘yicha nuqtalar va eng yaxshi to‘g‘ri chiziq.</p><div id="dscatter-ctl"></div><div id="dscatter"></div></div>
+  </section>
+
+  <!-- 2. CHIZIQLI REGRESSIYA -->
+  <section class="view" id="v-reg" role="tabpanel" aria-labelledby="t-reg" hidden>
+    <div class="pagehead">
+      <h2>Ko‘p o‘zgaruvchili <span class="grad">chiziqli regressiya</span></h2>
+      <p>Model: <b>ŷ = β₀ + β₁x₁ + … + βₚxₚ</b>. Koeffitsiyentlar eng kichik kvadratlar usulida, normal tenglama orqali topiladi: <b>β = (XᵀX)⁻¹Xᵀy</b>. Har bir qadamni ochib, haqiqiy matritsalarni ko‘rishingiz mumkin.</p>
+    </div>
+    <div id="reg-steps" class="stack"></div>
+    <div id="reg-qual" class="stack"></div>
+    <div class="grid2">
+      <div class="panel"><h3>Yangi avtomobil</h3><p class="hint">Qiymatlarni kiriting yoki slayderni suring.</p><div class="carform" id="f-reg"></div></div>
+      <div id="reg-pred"></div>
+    </div>
+  </section>
+
+  <!-- 3. k-NN -->
+  <section class="view" id="v-knn" role="tabpanel" aria-labelledby="t-knn" hidden>
+    <div class="pagehead">
+      <h2><span class="grad">k-NN</span>: eng yaqin qo‘shnilar usuli</h2>
+      <p>k-NN yangi avtomobilga eng o‘xshash <b>k</b> ta avtomobilni topadi. Ularning ko‘pchiligi tegishli bo‘lgan <b>narx toifasi</b> (Arzon, O‘rta, Qimmat) va <b>o‘rtacha narxi</b> javob bo‘ladi.</p>
+    </div>
+    <div class="panel"><h3>Sozlamalar</h3><div class="controls" id="knn-ctl"></div></div>
+    <div class="panel"><h3>Yangi avtomobil</h3><div class="carform" id="f-knn"></div></div>
+    <div id="knn-out" class="stack"></div>
+  </section>
+
+  <!-- 4. K-MEANS -->
+  <section class="view" id="v-km" role="tabpanel" aria-labelledby="t-km" hidden>
+    <div class="pagehead">
+      <h2><span class="grad">K-means</span>: avtomobillarni guruhlash</h2>
+      <p>K-means natija ustunisiz ishlaydi: o‘xshash avtomobillarni <b>k</b> ta guruhga (klasterga) ajratadi. Markazlarni tanlash, eng yaqin markazga biriktirish va markazlarni yangilash guruhlar o‘zgarmay qolguncha takrorlanadi.</p>
+    </div>
+    <div class="panel"><h3>Sozlamalar</h3><div class="controls" id="km-ctl"></div></div>
+    <div class="panel"><h3>Yangi avtomobil</h3><div class="carform" id="f-km"></div></div>
+    <div id="km-out" class="stack"></div>
+  </section>
+
+  <!-- 5. TAQQOSLASH -->
+  <section class="view" id="v-cmp" role="tabpanel" aria-labelledby="t-cmp" hidden>
+    <div class="pagehead">
+      <h2>Uch algoritm <span class="grad">yonma-yon</span></h2>
+      <p>Bitta yangi avtomobil uchun uchala algoritm javobi. Regressiya aniq son aytadi, k-NN toifa va o‘rtacha narxni, K-means esa guruhni ko‘rsatadi. Ularni solishtirish uchun hammasidan <b>narx bahosini</b> olamiz.</p>
+    </div>
+    <div class="panel"><h3>Yangi avtomobil</h3><p class="hint">Bu yerdagi qiymatlar boshqa bo‘limlar bilan bog‘langan: birini o‘zgartirsangiz, hammasi yangilanadi.</p><div class="carform" id="f-cmp"></div></div>
+    <div class="grid3" id="cmp-cards"></div>
+    <div id="cmp-out" class="stack"></div>
+  </section>
+
+  <!-- 6. ALGORITMLAR HAQIDA -->
+  <section class="view" id="v-theory" role="tabpanel" aria-labelledby="t-theory" hidden>
+    <div class="pagehead">
+      <h2>Algoritmlar <span class="grad">qanday ishlaydi?</span></h2>
+      <p>Bu bo‘limda loyihada ishlatilgan uchta algoritmning g‘oyasi, qadamlari va formulalari oddiy tilda tushuntiriladi.</p>
+    </div>
+    <div id="theory-out" class="stack"></div>
+  </section>
+</main>
+
+<footer class="wrap">Barcha hisob-kitoblar brauzeringizda bajariladi, ma’lumotlar hech qayerga yuborilmaydi. Model siz yuklagan CSV fayl asosida qayta quriladi.</footer>
+
+<script>
+'use strict';
+/* ============================================================
+   O‘rnatilgan namuna ma’lumot (01_car_prices.csv bilan bir xil)
+   ============================================================ */
+const DEFAULT_CSV = `year,mileage_km,engine_l,horsepower,age_years,price_mln_uzs
+2010,182476,1.2,85,16,63.99
+2011,177149,1.5,100,15,104.93
+2012,161657,1.8,115,14,143.32
+2013,152679,2.1,130,13,191.04
+2014,158617,2.4,145,12,224.78
+2015,146674,1.2,160,11,220.58
+2016,130488,1.5,175,10,256.04
+2017,126811,1.8,190,9,300.59
+2018,116434,2.1,85,8,274.91
+2019,120731,2.4,100,7,312.54
+2020,110928,1.2,115,6,306.16
+2021,102359,1.5,130,5,347.91
+2022,101261,1.8,145,4,389.78
+2023,93432,2.1,160,3,427.64
+2024,85438,2.4,175,2,460.42
+2010,71552,1.2,190,16,146.85
+2011,75682,1.5,85,15,126.82
+2012,54674,1.8,100,14,157.86
+2013,47584,2.1,115,13,200.83
+2014,44635,2.4,130,12,242.54`;
+
+const MAXROWS = 200;
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const esc = s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SUBD = ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉'];
+const sub = i=>String(i).split('').map(d=>SUBD[+d]).join('');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Ustun nomlarining o‘zbekcha ko‘rinishi: [to‘liq nom, qisqa nom] */
+const LBL = {
+  year:['Ishlab chiqarilgan yil','yil'], mileage_km:['Probeg (km)','probeg'], engine_l:['Dvigatel hajmi (l)','dvigatel'],
+  horsepower:['Ot kuchi (o.k.)','ot_kuchi'], age_years:['Yoshi (yil)','yosh'], price_mln_uzs:['Narx (mln so‘m)','narx']
+};
+const L  = n=>(LBL[n]||[n,n])[0];
+const Sh = n=>(LBL[n]||[n,n])[1];
+const unitOf = n=>n.replace(/^price_?/i,'').replace(/_/g,' ').replace(/uzs/i,'so‘m').trim();
+const CLS  = ['Arzon','O‘rta','Qimmat'];
+const CCOL = ['var(--pos)','var(--c1)','var(--neg)'];
+const KCOL = ['var(--c3)','var(--c1)','var(--pos)','var(--neg)','var(--c4)','var(--accent2)'];
+
+/* ---------- sonlarni formatlash ---------- */
+const grp = s=>s.replace(/\B(?=(\d{3})+(?!\d))/g,'\u202f');
+function fx(x,d=2){
+  if(typeof x!=='number'||!isFinite(x)) return '—';
+  if(x===0) return '0';
+  const a=Math.abs(x), sg=x<0?'-':'';
+  if(a>=1e9||a<1e-4) return x.toExponential(3);
+  if(Number.isInteger(x)) return sg+(a>=10000?grp(String(a)):String(a));
+  if(a<Math.pow(10,-d)*5) return x.toPrecision(3);
+  const [i,f]=a.toFixed(d).split('.');
+  return sg+(a>=10000?grp(i):i)+(f?'.'+f:'');
+}
+const fxm = v=>Math.abs(v)>=1e7?v.toExponential(3):fx(v,4);
+
+/* ---------- chiziqli algebra (sof JavaScript) ---------- */
+const T = A=>A[0].map((_,j)=>A.map(r=>r[j]));
+const mul = (A,B)=>{
+  const n=A.length,m=B.length,p=B[0].length,C=[];
+  for(let i=0;i<n;i++){const row=new Array(p).fill(0);for(let k=0;k<m;k++){const a=A[i][k];if(a!==0)for(let j=0;j<p;j++)row[j]+=a*B[k][j];}C.push(row);}
+  return C;
+};
+function invert(A){                       /* Gauss-Jordan usuli, bosh element tanlash bilan; yagona bo‘lsa null */
+  const n=A.length, M=A.map((r,i)=>[...r,...Array.from({length:n},(_,j)=>i===j?1:0)]);
+  for(let c=0;c<n;c++){
+    let p=c; for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[p][c])) p=r;
+    if(Math.abs(M[p][c])<1e-10) return null;
+    [M[c],M[p]]=[M[p],M[c]];
+    const pv=M[c][c]; for(let j=0;j<2*n;j++) M[c][j]/=pv;
+    for(let r=0;r<n;r++) if(r!==c){const f=M[r][c]; if(f!==0) for(let j=0;j<2*n;j++) M[r][j]-=f*M[c][j];}
+  }
+  return M.map(r=>r.slice(n));
+}
+const mean = a=>a.reduce((s,v)=>s+v,0)/a.length;
+const std  = a=>{const m=mean(a);return Math.sqrt(mean(a.map(v=>(v-m)**2)))};
+function pearson(a,b){const ma=mean(a),mb=mean(b);let sab=0,saa=0,sbb=0;for(let i=0;i<a.length;i++){sab+=(a[i]-ma)*(b[i]-mb);saa+=(a[i]-ma)**2;sbb+=(b[i]-mb)**2;}const d=Math.sqrt(saa*sbb);return d?sab/d:0}
+function quantile(a,q){const s=[...a].sort((x,y)=>x-y),p=(s.length-1)*q,i=Math.floor(p);return s[i]+(s[Math.min(i+1,s.length-1)]-s[i])*(p-i)}
+const strength = r=>{const a=Math.abs(r);return a>=.9?'juda kuchli':a>=.7?'kuchli':a>=.4?'o‘rtacha':a>=.2?'kuchsiz':'sezilarsiz'};
+
+/* ============================================================
+   CSV o‘qish (FileReader yoki o‘rnatilgan matn)
+   ============================================================ */
+function splitLine(line,d){
+  const out=[];let cur='',q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){ if(q&&line[i+1]==='"'){cur+='"';i++;} else q=!q; }
+    else if(ch===d&&!q){out.push(cur);cur='';}
+    else cur+=ch;
+  }
+  out.push(cur);
+  return out.map(s=>s.trim());
+}
+function parseCSV(text){
+  text=text.replace(/^\uFEFF/,'').trim();
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<4) throw new Error('Faylda sarlavha qatori va kamida 3 ta ma’lumot qatori bo‘lishi kerak.');
+  const count=(s,c)=>s.split(c).length;
+  const delim=count(lines[0],';')>count(lines[0],',')?';':(count(lines[0],'\t')>count(lines[0],',')?'\t':',');
+  const header=splitLine(lines[0],delim);
+  const raw=lines.slice(1).map((l,i)=>{
+    const c=splitLine(l,delim);
+    if(c.length!==header.length) throw new Error(`${i+2}-qatorda ${c.length} ta qiymat bor, sarlavhada esa ${header.length} ta ustun.`);
+    return c;
+  });
+  const num=s=>{ if(s==='') return NaN; return Number(delim===';'?s.replace(',','.'):s); };
+  const numeric=header.map((_,j)=>raw.every(r=>isFinite(num(r[j]))));
+  const ignored=header.filter((_,j)=>!numeric[j]);
+  const idx=header.map((_,j)=>j).filter(j=>numeric[j]);
+  if(idx.length<2) throw new Error('Kamida ikkita son ustuni kerak: bitta natija va bitta xususiyat.');
+  let t=idx.find(j=>/price|narx|cost|narh/i.test(header[j]));
+  if(t===undefined) t=idx[idx.length-1];
+  const fidx=idx.filter(j=>j!==t);
+  return {target:header[t], fnames:fidx.map(j=>header[j]), ignored, X:raw.map(r=>fidx.map(j=>num(r[j]))), y:raw.map(r=>num(r[t]))};
+}
+
+/* ============================================================
+   Holat
+   ============================================================ */
+let D=null, S={}, Mdl=null, activeTab='data', kmTimer=null, DID=0;
+const CF=[];                          /* barcha "yangi avtomobil" formalari maydonlari */
+const openSet=new Set(['m1','m6','th1']);
+document.addEventListener('toggle',e=>{const d=e.target;if(!(d instanceof HTMLDetailsElement)||!d.dataset.id)return;d.open?openSet.add(d.dataset.id):openSet.delete(d.dataset.id);},true);
+const det=(id,n,title,body)=>`<details data-id="${id}" ${openSet.has(id)?'open':''}><summary><span class="step">${n}</span>${title}</summary><div class="body">${body}</div></details>`;
+const legend=items=>`<div class="legend">${items.map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')}</div>`;
+
+/* ============================================================
+   Model: normal tenglama orqali ko‘p o‘zgaruvchili chiziqli regressiya.
+   Xususiyatlar avval standartlanadi (z-ball): natija o‘zgarmaydi, lekin
+   hisob barqarorroq bo‘ladi. Boshqa xususiyatlarning aniq chiziqli
+   kombinatsiyasi bo‘lgan ustunlar (masalan, yosh = 2026 − yil) XᵀX ni
+   yagona qiladi, shuning uchun ular aniqlanib, chiqarib tashlanadi.
+   ============================================================ */
+function fitModel(){
+  const {X,y,n,fnames}=D, p=fnames.length;
+  const col=j=>X.map(r=>r[j]);
+  const mu=[...Array(p)].map((_,j)=>mean(col(j)));
+  const sd=[...Array(p)].map((_,j)=>std(col(j)));
+  const zc=[...Array(p)].map((_,j)=>col(j).map(v=>sd[j]>1e-12?(v-mu[j])/sd[j]:0));
+  const corrZ=(a,b)=>mean(zc[a].map((v,i)=>v*zc[b][i]));
+  const kept=[], dropped=[];
+  for(let j=0;j<p;j++){
+    if(!S.enabled[j]){dropped.push({j,kind:'off'});continue;}
+    if(sd[j]<1e-12){dropped.push({j,kind:'const'});continue;}
+    if(!kept.length){kept.push(j);continue;}
+    const R=kept.map(a=>kept.map(b=>corrZ(a,b))), r=kept.map(a=>[corrZ(a,j)]);
+    const Ri=invert(R); let r2=0, coefs=[];
+    if(Ri){const s=mul(Ri,r);coefs=s.map(v=>v[0]);r2=r.reduce((acc,v,i)=>acc+v[0]*coefs[i],0);}
+    if(!Ri||1-r2<1e-8) dropped.push({j,kind:'collinear',r2,by:kept.filter((_,i)=>Math.abs(coefs[i])>1e-6).map(a=>fnames[a])});
+    else kept.push(j);
+  }
+  const base={kept,dropped,mu,sd};
+  const k=kept.length;
+  if(k===0) return {...base,error:'Ishlatish mumkin bo‘lgan xususiyat yo‘q. “Ma’lumot” bo‘limida kamida bitta xususiyatni belgilang (o‘zgarmas va ortiqcha ustunlar avtomatik chiqariladi).'};
+  if(n<k+2) return {...base,error:`Qatorlar yetarli emas: ${k} ta xususiyat uchun kamida ${k+2} ta kuzatuv kerak, lekin faqat ${n} ta bor.`};
+  const Z=X.map(r=>kept.map(j=>(r[j]-mu[j])/sd[j]));
+  const A=Z.map(z=>[1,...z]), At=T(A);
+  const AtA=mul(At,A), Aty=mul(At,y.map(v=>[v]));
+  const inv=invert(AtA);
+  if(!inv) return {...base,error:'ZᵀZ matritsasi yagona (teskarilanmaydi), bu ma’lumot bilan modelni yechib bo‘lmaydi.'};
+  const gamma=mul(inv,Aty).map(r=>r[0]);
+  const M=Array.from({length:k+1},()=>Array(k+1).fill(0));
+  M[0][0]=1; kept.forEach((j,i)=>{M[0][i+1]=-mu[j]/sd[j]; M[i+1][i+1]=1/sd[j];});
+  const beta=mul(M,gamma.map(v=>[v])).map(r=>r[0]);
+  const yh=A.map(r=>r.reduce((s,v,i)=>s+v*gamma[i],0));
+  const res=y.map((v,i)=>v-yh[i]);
+  const sse=res.reduce((s,e)=>s+e*e,0), my=mean(y), sst=y.reduce((s,v)=>s+(v-my)**2,0);
+  const df=n-k-1, r2=sst>0?1-sse/sst:0, adj=df>0?1-(1-r2)*(n-1)/df:NaN, s2=df>0?sse/df:NaN;
+  const covB=mul(mul(M,inv.map(r=>r.map(v=>v*s2))),T(M));
+  const se=covB.map((r,i)=>Math.sqrt(Math.max(r[i],0)));
+  const tst=beta.map((b,i)=>se[i]>0?b/se[i]:NaN);
+  const F=df>0&&sse>0?((sst-sse)/k)/(sse/df):NaN;
+  const chk=mul(AtA,inv); let invErr=0; chk.forEach((r,i)=>r.forEach((v,j)=>{invErr=Math.max(invErr,Math.abs(v-(i===j?1:0)));}));
+  const mape=y.every(v=>v!==0)?mean(res.map((e,i)=>Math.abs(e/y[i])))*100:NaN;
+  return {...base,k,n,Z,A,AtA,Aty,inv,gamma,M,beta,se,t:tst,yh,res,sse,sst,my,df,r2,adj,F,invErr,
+          rmse:Math.sqrt(sse/n),mae:mean(res.map(Math.abs)),mape,sy:std(y)};
+}
+function predictReg(v){ let s=Mdl.beta[0]; Mdl.kept.forEach((j,i)=>{s+=Mdl.beta[i+1]*v[j];}); return s; }
+
+/* ============================================================
+   SVG diagramma yordamchilari
+   ============================================================ */
+function ticks(a,b,n=5){
+  const span=b-a||1, raw=span/n, mag=Math.pow(10,Math.floor(Math.log10(raw))), nm=raw/mag;
+  const step=(nm<1.5?1:nm<3?2:nm<7?5:10)*mag, out=[];
+  for(let v=Math.ceil(a/step)*step;v<=b+1e-9;v+=step) out.push(+v.toPrecision(12));
+  return out;
+}
+function plot({x:[x0,x1],y:[y0,y1],xl,yl,draw,label,h=340}){
+  const W=620,H=h,m={l:60,r:16,t:12,b:46};
+  if(x1===x0){x0-=1;x1+=1;} if(y1===y0){y0-=1;y1+=1;}
+  const px=(x1-x0)*.06, py=(y1-y0)*.06; x0-=px;x1+=px;y0-=py;y1+=py;
+  const sx=v=>m.l+(v-x0)/(x1-x0)*(W-m.l-m.r), sy=v=>H-m.b-(v-y0)/(y1-y0)*(H-m.t-m.b);
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">`;
+  ticks(x0,x1).forEach(v=>{s+=`<line x1="${sx(v)}" x2="${sx(v)}" y1="${m.t}" y2="${H-m.b}" style="stroke:var(--line)"/><text x="${sx(v)}" y="${H-m.b+16}" text-anchor="middle">${fx(v,2)}</text>`;});
+  ticks(y0,y1).forEach(v=>{s+=`<line y1="${sy(v)}" y2="${sy(v)}" x1="${m.l}" x2="${W-m.r}" style="stroke:var(--line)"/><text x="${m.l-8}" y="${sy(v)+4}" text-anchor="end">${fx(v,2)}</text>`;});
+  s+=`<text x="${(m.l+W-m.r)/2}" y="${H-8}" text-anchor="middle">${esc(xl)}</text>`;
+  s+=`<text transform="translate(14 ${(m.t+H-m.b)/2}) rotate(-90)" text-anchor="middle">${esc(yl)}</text>`;
+  s+=draw(sx,sy,{W,H,m});
+  return s+'</svg>';
+}
+function divBars(items,R,fmt=v=>v.toFixed(2)){
+  const W=620,rowH=34,Lm=150,top=8,bot=28,H=top+items.length*rowH+bot, RR=R*1.35||1;
+  const sx=v=>Lm+(v+RR)/(2*RR)*(W-Lm-20);
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ustunli diagramma">`;
+  [-R,-R/2,0,R/2,R].forEach(v=>{s+=`<line x1="${sx(v)}" x2="${sx(v)}" y1="${top}" y2="${H-bot}" style="stroke:var(--line)"/><text x="${sx(v)}" y="${H-10}" text-anchor="middle">${fmt(v)}</text>`;});
+  s+=`<line x1="${sx(0)}" x2="${sx(0)}" y1="${top}" y2="${H-bot}" style="stroke:var(--muted)"/>`;
+  items.forEach(([nm,v],i)=>{
+    const y=top+i*rowH+6, x=Math.min(sx(0),sx(v)), w=Math.abs(sx(v)-sx(0));
+    s+=`<text x="${Lm-10}" y="${y+14}" text-anchor="end" class="v">${esc(nm)}</text>`;
+    s+=`<rect x="${x}" y="${y}" width="${w}" height="20" rx="5" style="fill:${v>=0?'var(--pos)':'var(--neg)'}"><title>${esc(nm)}: ${fmt(v)}</title></rect>`;
+    s+=`<text x="${v>=0?sx(v)+6:sx(v)-6}" y="${y+14}" text-anchor="${v>=0?'start':'end'}" class="v">${fmt(v)}</text>`;
+  });
+  return s+'</svg>';
+}
+function vbars(items,{active=-1,fmt=v=>fx(v,1),h=170}={}){      /* tik ustunlar: [yorliq, qiymat] */
+  const W=620,n=items.length,top=26,bot=26,gap=(W-40)/n,bw=Math.min(56,gap*.62),mx=Math.max(...items.map(i=>i[1]),1e-9);
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${h}" role="img" aria-label="Ustunli diagramma">`;
+  items.forEach(([lb,v],i)=>{
+    const cx=20+gap*i+gap/2, bh=Math.max((h-top-bot)*v/mx,2), on=i===active;
+    s+=`<rect x="${cx-bw/2}" y="${h-bot-bh}" width="${bw}" height="${bh}" rx="6" style="fill:${on?'var(--accent)':'var(--line)'}"><title>${esc(lb)}: ${fmt(v)}</title></rect>`;
+    s+=`<text x="${cx}" y="${h-bot-bh-6}" text-anchor="middle" class="${on?'v':''}">${fmt(v)}</text><text x="${cx}" y="${h-8}" text-anchor="middle" class="${on?'v':''}">${esc(lb)}</text>`;
+  });
+  return s+'</svg>';
+}
+function heatmap(names,C){
+  const m=names.length, cell=Math.max(46,Math.min(74,Math.floor(500/m))), Lm=130, Tm=110, W=Lm+m*cell+80, H=Tm+m*cell+8;
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Korrelyatsiya matritsasi issiqlik xaritasi">`;
+  names.forEach((nm,i)=>{
+    s+=`<text transform="translate(${Lm+i*cell+cell/2} ${Tm-8}) rotate(-35)" text-anchor="start">${esc(nm)}</text>`;
+    s+=`<text x="${Lm-8}" y="${Tm+i*cell+cell/2+4}" text-anchor="end">${esc(nm)}</text>`;
+  });
+  C.forEach((row,i)=>row.forEach((r,j)=>{
+    s+=`<rect x="${Lm+j*cell}" y="${Tm+i*cell}" width="${cell-3}" height="${cell-3}" rx="7" style="fill:${r>=0?'var(--pos)':'var(--neg)'};fill-opacity:${(.08+Math.abs(r)*.82).toFixed(2)}"><title>${esc(names[i])} va ${esc(names[j])}: r = ${r.toFixed(3)}</title></rect>`;
+    s+=`<text class="halo" x="${Lm+j*cell+(cell-3)/2}" y="${Tm+i*cell+(cell-3)/2+4}" text-anchor="middle">${r.toFixed(2)}</text>`;
+  }));
+  return s+'</svg>';
+}
+const star=(cx,cy,r)=>{let p=[];for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;p.push((cx+rr*Math.cos(a)).toFixed(1)+','+(cy+rr*Math.sin(a)).toFixed(1))}return `<polygon points="${p.join(' ')}" style="fill:var(--ink);stroke:var(--surface);stroke-width:1.5"/>`};
+const diamond=(cx,cy,r,col)=>`<polygon points="${cx},${cy-r} ${cx+r},${cy} ${cx},${cy+r} ${cx-r},${cy}" style="fill:${col};stroke:var(--ink);stroke-width:2"/>`;
+function matTable(Mx,cols,rows,fmt=fxm){
+  let h='<div class="scroll"><table class="mat">';
+  if(cols) h+='<thead><tr>'+(rows?'<th></th>':'')+cols.map(c=>`<th>${esc(c)}</th>`).join('')+'</tr></thead>';
+  h+='<tbody>'+Mx.map((r,i)=>'<tr>'+(rows?`<td>${esc(rows[i])}</td>`:'')+r.map(v=>`<td>${fmt(v)}</td>`).join('')+'</tr>').join('')+'</tbody></table></div>';
+  return h;
+}
+const axisSel=(id,cur,idxs)=>`<select id="${id}">${idxs.map(j=>`<option value="${j}" ${j===cur?'selected':''}>${esc(L(D.fnames[j]))}</option>`).join('')}</select>`;
+
+/* ============================================================
+   Ma’lumotni yuklash
+   ============================================================ */
+function loadData(text,label){
+  const err=$('#loaderr'); err.innerHTML='';
+  let P;
+  try{ P=parseCSV(text); }catch(e){ err.innerHTML=`<span class="err">${esc(e.message)}</span>`; return; }
+  const p=P.fnames.length, col=j=>P.X.map(r=>r[j]);
+  D={...P,id:++DID,n:P.X.length,p,label,unit:unitOf(P.target),tn:L(P.target),
+     mn:[...Array(p)].map((_,j)=>Math.min(...col(j))), mx:[...Array(p)].map((_,j)=>Math.max(...col(j))),
+     isInt:[...Array(p)].map((_,j)=>col(j).every(Number.isInteger))};
+  S.enabled=Array(p).fill(true);
+  S.newv=[...Array(p)].map((_,j)=>{const m=quantile(col(j),.5);return D.isInt[j]?Math.round(m):+m.toFixed(2);});
+  S.sx=0; S.k=Math.min(5,D.n-1); S.scale=true;
+  S.t1=+quantile(D.y,1/3).toFixed(1); S.t2=+quantile(D.y,2/3).toFixed(1);
+  S.elbow={}; S.cmpLast={};
+  $('#fileinfo').textContent=`${label}: ${D.n} ta qator, ${p} ta xususiyat, natija ustuni “${L(D.target)}”`;
+  refit();
+}
+function refit(){
+  stopKm();
+  Mdl=fitModel();
+  const kp=Mdl.kept, a=kp[0]??0, b=kp[Math.min(1,kp.length-1)]??0;
+  S.kax=a; S.kay=b;
+  S.km={k:Math.min(3,Math.max(2,D.n-1)),feats:[...kp],seed:1,iter:1,maxIter:15,ax:a,ay:b};
+  renderNotice(); renderKPIs(); renderData(); renderRegSteps();
+  buildCarForms(); buildRegShell(); buildKnnCtl(); buildKmCtl(); buildCmpShell();
+  renderActive(true);
+}
+function cls(v){ return v<S.t1?0:(v<S.t2?1:2); }
+
+/* ============================================================
+   "Yangi avtomobil" formalari (barcha bo‘limlarda sinxron)
+   ============================================================ */
+function buildCarForms(){
+  CF.length=0;
+  ['#f-reg','#f-knn','#f-km','#f-cmp'].forEach(sel=>buildCarForm($(sel),sel.slice(1)));
+}
+function buildCarForm(box,pre){
+  box.innerHTML='';
+  box.style.display='grid'; box.style.gridTemplateColumns='repeat(auto-fit,minmax(250px,1fr))'; box.style.gap='0 26px';
+  const used=new Set(Mdl.kept), dm={}; Mdl.dropped.forEach(d=>dm[d.j]=d);
+  D.fnames.forEach((nm,j)=>{
+    const range=D.mx[j]-D.mn[j]||1, isInt=D.isInt[j];
+    const step=isInt?Math.max(1,Math.pow(10,Math.floor(Math.log10(range))-2)):(range<2?0.01:0.1);
+    const dec=step<1?String(step).split('.')[1].length:0;
+    const smin=+(Math.floor(D.mn[j]/step)*step).toFixed(dec), smax=+(Math.ceil(D.mx[j]/step)*step).toFixed(dec);
+    const on=used.has(j);
+    const f=document.createElement('div'); f.className='field'+(on?'':' off');
+    f.innerHTML=`<label class="lab" for="${pre}n${j}"><span>${esc(L(nm))}</span><small>${fx(D.mn[j])} – ${fx(D.mx[j])}</small></label>
+      <div class="row"><input type="number" id="${pre}n${j}" step="${isInt?1:(range<2?0.01:0.1)}" value="${S.newv[j]}" ${on?'':'disabled'}><input type="range" id="${pre}s${j}" min="${smin}" max="${smax}" step="${step}" value="${Math.min(Math.max(S.newv[j],smin),smax)}" aria-label="${esc(L(nm))} slayderi" ${on?'':'disabled'}></div>
+      <span class="why">${on?'':(dm[j]&&dm[j].kind==='collinear'?'Ishlatilmaydi: boshqa xususiyatlar bilan takrorlanadi.':'Modelda ishlatilmaydi.')}</span>`;
+    box.appendChild(f);
+    if(!on) return;
+    const num=$('#'+pre+'n'+j,f), rng=$('#'+pre+'s'+j,f);
+    CF.push({j,num,rng});
+    const upd=v=>{
+      if(v===''||!isFinite(+v)) return;
+      S.newv[j]=+v;
+      CF.forEach(c=>{ if(c.j===j){ if(c.num!==num) c.num.value=v; if(c.rng!==rng) c.rng.value=v; } });
+      renderActive(false);
+    };
+    num.addEventListener('input',()=>{rng.value=num.value;upd(num.value);});
+    rng.addEventListener('input',()=>{num.value=rng.value;upd(rng.value);});
+  });
+}
+function tween(el,to,d=2){
+  if(!el) return;
+  const from=parseFloat(el.dataset.v);
+  el.dataset.v=to; cancelAnimationFrame(el._raf||0);
+  if(reduceMotion||!isFinite(from)){el.textContent=fx(to,d);return;}
+  const t0=performance.now();
+  const step=t=>{const p=Math.min(1,(t-t0)/380),e=1-Math.pow(1-p,3);el.textContent=fx(from+(to-from)*e,d);if(p<1)el._raf=requestAnimationFrame(step);};
+  el._raf=requestAnimationFrame(step);
+}
+function pulse(el){ if(!el||reduceMotion) return; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+function outOfRange(){ return Mdl.kept.filter(j=>S.newv[j]<D.mn[j]||S.newv[j]>D.mx[j]); }
+function rangeWarn(){
+  const out=outOfRange();
+  return out.length?`<div class="warn">${out.map(j=>`<b>${esc(L(D.fnames[j]))}</b>`).join(', ')} qiymati ma’lumotdagi diapazondan tashqarida, shuning uchun natija ishonchsizroq bo‘lishi mumkin.</div>`:'';
+}
+
+/* ============================================================
+   Ma’lumot bo‘limi
+   ============================================================ */
+function renderKPIs(){
+  const m=Mdl, ok=!m.error;
+  const items=[[D.n,'kuzatuvlar soni'],[Mdl.kept.length,'ishlatilayotgan xususiyatlar'],[ok?m.r2.toFixed(4):'—','R² (regressiya)'],[ok?fx(m.rmse,2):'—',`RMSE (${D.unit||'narx'})`]];
+  $('#kpis').innerHTML=items.map(([v,l])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+}
+function roleWhy(d){
+  if(d.kind==='const') return 'O‘zgarmas ustun: barcha qatorlarda bir xil qiymat, ya’ni hech qanday ma’lumot bermaydi.';
+  return `Ortiqcha: ${d.by.length?d.by.map(b=>esc(L(b))).join(' + '):'boshqa xususiyatlar'} orqali to‘liq aniqlanadi (R² = ${d.r2.toFixed(6)}). Uni qoldirsak, XᵀX yagona bo‘lib qoladi.`;
+}
+function renderNotice(){
+  const col=Mdl.dropped.filter(d=>d.kind==='collinear');
+  let h='';
+  if(col.length) h+=`<div class="warn"><b>Diqqat:</b> ${col.map(d=>`<b>${esc(L(D.fnames[d.j]))}</b>`).join(', ')} ustuni boshqa xususiyatlarning aniq chiziqli kombinatsiyasi bo‘lgani uchun avtomatik chiqarib tashlandi. Ikkita to‘liq bog‘langan ustun XᵀX ni teskarilanmaydigan qiladi, shuning uchun normal tenglamaning yagona yechimi bo‘lmaydi. Bashorat natijasiga ta’sir qilmaydi: ma’lumot qolgan xususiyatlarda allaqachon bor.</div>`;
+  if(D.ignored.length) h+=`<div class="ok">Son bo‘lmagan ustunlar e’tiborga olinmadi: ${D.ignored.map(c=>`<b>${esc(c)}</b>`).join(', ')}.</div>`;
+  $('#notice').innerHTML=h;
+}
+function renderData(){
+  const {fnames,X,y,n,p,target}=D, cap=Math.min(n,MAXROWS);
+  $('#dinfo').textContent=`Jami ${n} ta qator${n>cap?` (dastlabki ${cap} tasi ko‘rsatilgan)`:''}. Natija ustuni o‘ng tomonda ajratilgan.`;
+  $('#dtable').innerHTML=`<div class="scroll tall"><table><thead><tr><th>#</th>${fnames.map(c=>`<th>${esc(L(c))}</th>`).join('')}<th class="sep">${esc(L(target))}</th></tr></thead><tbody>${X.slice(0,cap).map((r,i)=>`<tr><td>${i+1}</td>${r.map(v=>`<td>${fx(v)}</td>`).join('')}<td class="sep"><b>${fx(y[i])}</b></td></tr>`).join('')}</tbody></table></div>`;
+  const dm={}; Mdl.dropped.forEach(d=>dm[d.j]=d);
+  $('#droles').innerHTML=`<div class="roles">`+fnames.map((nm,j)=>{
+    const d=dm[j];
+    return `<label class="role"><input type="checkbox" data-j="${j}" ${S.enabled[j]?'checked':''}><span>${esc(L(nm))}</span><span class="tag ${d&&d.kind!=='off'?'d':d?'o':'f'}">${d?(d.kind==='off'?'o‘chirilgan':'chiqarilgan'):'xususiyat'}</span>${d&&d.kind!=='off'?`<span class="why">${roleWhy(d)}</span>`:''}</label>`;
+  }).join('')+`<div class="role"><input type="checkbox" checked disabled><span>${esc(L(target))}</span><span class="tag t">natija</span></div></div>`;
+  $$('#droles input[data-j]').forEach(c=>c.addEventListener('change',()=>{S.enabled[+c.dataset.j]=c.checked;refit();}));
+  const all=[...fnames.map((nm,j)=>[nm,X.map(r=>r[j])]),[target,y]];
+  $('#dstats').innerHTML=`<div class="scroll"><table><thead><tr><th>Ustun</th><th>min</th><th>maks</th><th>o‘rtacha</th><th>σ</th></tr></thead><tbody>${all.map(([nm,a])=>`<tr><td>${esc(L(nm))}</td><td>${fx(Math.min(...a))}</td><td>${fx(Math.max(...a))}</td><td>${fx(mean(a))}</td><td>${fx(std(a))}</td></tr>`).join('')}</tbody></table></div>`;
+  const rs=fnames.map((nm,j)=>[L(nm),pearson(X.map(r=>r[j]),y)]);
+  $('#dcorr').innerHTML=divBars(rs,1)+`<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Xususiyat</th><th>r</th><th>r²</th><th style="text-align:left">Bog‘liqlik kuchi</th></tr></thead><tbody>${rs.map(([nm,r])=>`<tr><td>${esc(nm)}</td><td>${r.toFixed(4)}</td><td>${(r*r).toFixed(4)}</td><td style="text-align:left">${strength(r)}, ${r>=0?'musbat':'manfiy'}</td></tr>`).join('')}</tbody></table></div>`;
+  const names=[...fnames.map(L),L(target)], cols=[...fnames.map((_,j)=>X.map(r=>r[j])),y];
+  $('#dheat').innerHTML=heatmap(names,cols.map(a=>cols.map(b=>pearson(a,b))))+legend([['var(--pos)','musbat bog‘liqlik'],['var(--neg)','manfiy bog‘liqlik']]);
+  $('#dscatter-ctl').innerHTML=`<div class="field"><label class="lab" for="sxsel">Gorizontal o‘qdagi xususiyat</label><select id="sxsel">${fnames.map((nm,j)=>`<option value="${j}" ${j===S.sx?'selected':''}>${esc(L(nm))}</option>`).join('')}</select></div>`;
+  $('#sxsel').onchange=e=>{S.sx=+e.target.value;renderScatter();};
+  renderScatter();
+}
+function renderScatter(){
+  const j=S.sx, xs=D.X.map(r=>r[j]), ys=D.y, mx=mean(xs), my=mean(ys);
+  let sxy=0,sxx=0; xs.forEach((v,i)=>{sxy+=(v-mx)*(ys[i]-my);sxx+=(v-mx)**2;});
+  const b1=sxx?sxy/sxx:0, b0=my-b1*mx, r=pearson(xs,ys), x0=Math.min(...xs), x1=Math.max(...xs);
+  const svg=plot({x:[x0,x1],y:[Math.min(...ys),Math.max(...ys)],xl:L(D.fnames[j]),yl:D.tn,label:`${D.tn} va ${L(D.fnames[j])}`,
+    draw:(sx,sy)=>`<line x1="${sx(x0)}" y1="${sy(b0+b1*x0)}" x2="${sx(x1)}" y2="${sy(b0+b1*x1)}" style="stroke:var(--accent);stroke-width:2.5"/>`+
+      xs.map((v,i)=>`<circle cx="${sx(v)}" cy="${sy(ys[i])}" r="5.5" style="fill:var(--c3);fill-opacity:.8;stroke:var(--surface);stroke-width:1.2"><title>#${i+1}: ${esc(L(D.fnames[j]))} = ${fx(v)}, ${esc(D.tn)} = ${fx(ys[i])}</title></circle>`).join('')});
+  $('#dscatter').innerHTML=`<div class="stat"><div><b>${r.toFixed(3)}</b><span>korrelyatsiya r</span></div><div><b>${(r*r).toFixed(3)}</b><span>faqat shu xususiyat bo‘yicha R²</span></div><div><b>${fx(b1,4)}</b><span>og‘ish (bir birlikka)</span></div></div>${svg}<p class="hint" style="margin-top:6px">Chiziq faqat bitta xususiyatga tayanadi. Hamma xususiyatni birlashtirgan to‘liq model “Chiziqli regressiya” bo‘limida ancha aniqroq.</p>`;
+}
+
+/* ============================================================
+   Chiziqli regressiya bo‘limi
+   ============================================================ */
+function formulaText(){
+  const m=Mdl;
+  return `${Sh(D.target)} = ${fx(m.beta[0],4)}`+m.kept.map((j,i)=>` ${m.beta[i+1]<0?'-':'+'} ${fx(Math.abs(m.beta[i+1]),4)}·${Sh(D.fnames[j])}`).join('');
+}
+function renderRegSteps(){
+  const st=$('#reg-steps'), ql=$('#reg-qual'), m=Mdl;
+  if(m.error){st.innerHTML=`<span class="err">${esc(m.error)}</span>`;ql.innerHTML='';return;}
+  const {kept,k,n}=m, fn=kept.map(j=>L(D.fnames[j])), cols=['1',...fn], cap=Math.min(n,MAXROWS);
+  const capNote=n>cap?`<p class="hint">Dastlabki ${cap} ta qator ko‘rsatilgan (jami ${n} ta).</p>`:'';
+  const g=i=>'γ'+sub(i), b=i=>'β'+sub(i);
+  const s1=`<p>Bosh matritsa <b>X</b> da har bir avtomobil — bitta qator (<b>${n}</b> ta), har bir xususiyat — bitta ustun (<b>${k}</b> ta). Oldiga β₀ (kesishma) uchun 1 lardan iborat ustun qo‘shiladi. O‘lchamlar: X — ${n}×${k+1}, y — ${n}×1, β — ${k+1}×1.</p>${capNote}
+    <div class="scroll tall"><table class="mat"><thead><tr><th>#</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}<th class="sep">y = ${esc(D.tn)}</th></tr></thead><tbody>${m.A.slice(0,cap).map((_,i)=>`<tr><td>${i+1}</td><td>1</td>${kept.map(j=>`<td>${fx(D.X[i][j])}</td>`).join('')}<td class="sep">${fx(D.y[i])}</td></tr>`).join('')}</tbody></table></div>`;
+  const s2=`<p>Ustunlar o‘lchami juda farq qiladi: masalan, ${fx(Math.max(...kept.map(j=>D.mx[j])))} atrofidagi qiymatlar yonida ${fx(Math.min(...kept.map(j=>D.mx[j])))} atrofidagilar bor. XᵀX da ular kvadratga ko‘tarilib, sonlar o‘rtasida katta farq paydo bo‘ladi va hisob aniqligi pasayadi. Shuning uchun har bir xususiyat avval standartlanadi: <b>z = (x − μ) / σ</b>. To‘g‘ri chiziq o‘zgarmaydi, koeffitsiyentlar 6-qadamda asl birliklarga qaytariladi.</p>
+    <div class="scroll"><table><thead><tr><th>Xususiyat</th><th>μ (o‘rtacha)</th><th>σ (standart og‘ish)</th></tr></thead><tbody>${kept.map(j=>`<tr><td>${esc(L(D.fnames[j]))}</td><td>${fx(m.mu[j],4)}</td><td>${fx(m.sd[j],4)}</td></tr>`).join('')}</tbody></table></div>
+    <h4>Standartlangan matritsa Z</h4>${capNote}
+    <div class="scroll tall"><table class="mat"><thead><tr><th>#</th>${cols.map(c=>`<th>${c==='1'?'1':'z('+esc(c)+')'}</th>`).join('')}</tr></thead><tbody>${m.A.slice(0,cap).map((r,i)=>`<tr><td>${i+1}</td>${r.map(v=>`<td>${fx(v,4)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const Araw=D.X.map(r=>[1,...kept.map(j=>r[j])]), XtX=mul(T(Araw),Araw), Xty=mul(T(Araw),D.y.map(v=>[v]));
+  const s3=`<p>Xatolar kvadratlari yig‘indisining hosilasini nolga tenglashtirsak, <b>normal tenglama</b> chiqadi: <b>(ZᵀZ)γ = Zᵀy</b>. Avval taqqoslash uchun asl qiymatlardagi (standartlanmagan) XᵀX va Xᵀy. Sonlar necha tartibga farq qilishiga e’tibor bering:</p>
+    <div class="grid2"><div><h4>XᵀX (asl qiymatlar)</h4>${matTable(XtX,cols,cols)}</div><div><h4>Xᵀy (asl qiymatlar)</h4>${matTable(Xty,['qiymat'],cols)}</div></div>
+    <p style="margin-top:14px">Standartlangan ma’lumotda esa matritsalar kichik va barqaror. Chap yuqori burchakdagi son n = ${n} ga teng, birinchi qator va ustunning qolgan qismi 0 (chunki har bir z-ustunning o‘rtachasi 0), qolgan blok esa n marta xususiyatlar korrelyatsiya matritsasiga teng.</p>
+    <div class="grid2"><div><h4>ZᵀZ</h4>${matTable(m.AtA,cols,cols)}</div><div><h4>Zᵀy</h4>${matTable(m.Aty,['qiymat'],cols)}</div></div>`;
+  const s4=`<div class="formula">γ = (ZᵀZ)⁻¹ · Zᵀy</div><p>Teskari matritsa Gauss-Jordan usuli bilan (bosh elementni tanlab) topiladi. ZᵀZ ni teskarisiga ko‘paytirsak birlik matritsa chiqishi kerak. Undan eng katta chetlanish: <b class="mono">${m.invErr.toExponential(2)}</b>, ya’ni teskarilash aniq bajarilgan.</p>${matTable(m.inv,cols,cols,v=>fx(v,6))}`;
+  const s5=`<p>Teskari matritsani Zᵀy ga ko‘paytirsak, standartlangan birliklardagi koeffitsiyentlar γ chiqadi. Har bir γ — xususiyat bir standart og‘ishga oshganda ${esc(D.tn)} qanchaga o‘zgarishini bildiradi.</p>
+    <div class="scroll"><table><thead><tr><th>Koeffitsiyent</th><th style="text-align:left">Had</th><th>Qiymat γ</th></tr></thead><tbody>${m.gamma.map((v,i)=>`<tr><td>${g(i)}</td><td style="text-align:left">${i?esc(fn[i-1]):'kesishma (y ning o‘rtachasiga teng)'}</td><td>${fx(v,4)}</td></tr>`).join('')}</tbody></table></div>`;
+  const s6=`<p>Asl birliklarga qaytish uchun o‘tish matritsasi M ishlatiladi: <b>β = M·γ</b>. Bunda βⱼ = γⱼ/σⱼ (har bir xususiyat uchun), β₀ = γ₀ − Σ γⱼμⱼ/σⱼ.</p>
+    ${matTable(m.M,cols.map((_,i)=>g(i)),cols.map((_,i)=>b(i)),v=>fx(v,6))}
+    <h4>Yakuniy koeffitsiyentlar β</h4>
+    <div class="scroll"><table><thead><tr><th>Koeffitsiyent</th><th style="text-align:left">Had</th><th>β</th><th>Standart xato</th><th>t-qiymat</th><th style="text-align:left">Ma’nosi</th></tr></thead><tbody>${m.beta.map((v,i)=>`<tr><td>${b(i)}</td><td style="text-align:left">${i?esc(fn[i-1]):'kesishma'}</td><td><b>${fx(v,4)}</b></td><td>${fx(m.se[i],4)}</td><td>${fx(m.t[i],2)}</td><td class="wrap2">${i?`<b>${esc(fn[i-1])}</b> bir birlikka oshsa, boshqa xususiyatlar o‘zgarmaganda ${esc(D.tn)} o‘rtacha ${fx(Math.abs(v),4)} ga ${v>=0?'oshadi':'kamayadi'}.`:'Barcha xususiyatlar 0 bo‘lgandagi narx. Bu matematik tayanch nuqta, haqiqiy avtomobil emas.'}</td></tr>`).join('')}</tbody></table></div>
+    <p class="hint" style="margin-top:8px">|t| taxminan 2 dan katta bo‘lsa, koeffitsiyent nolga teng emasligiga ishonch yuqori.</p>
+    <h4>Yakuniy formula</h4>
+    <div class="formula">ŷ = ${b(0)} + ${kept.map((_,i)=>`${b(i+1)}x${sub(i+1)}`).join(' + ')}</div>
+    <div class="formula">${esc(formulaText())}</div>
+    <p class="hint">bunda ${kept.map((j,i)=>`x${sub(i+1)} = ${esc(Sh(D.fnames[j]))}`).join(', ')}.</p>`;
+  st.innerHTML=det('m1',1,'X va y matritsalarini qurish',s1)+det('m2',2,'Xususiyatlarni standartlash (Z matritsa)',s2)+det('m3',3,'Normal tenglama: ZᵀZ va Zᵀy',s3)+det('m4',4,'Teskari matritsa (ZᵀZ)⁻¹',s4)+det('m5',5,'Koeffitsiyentlar γ ni topish',s5)+det('m6',6,'β koeffitsiyentlar va yakuniy formula',s6);
+
+  const y=D.y, u=D.unit;
+  const stats=`<div class="panel"><h3>Model sifati</h3><div class="stat">
+    <div><b>${m.r2.toFixed(4)}</b><span>R²: narx o‘zgarishining qancha qismi tushuntirilgan</span></div>
+    <div><b>${fx(m.rmse,2)}</b><span>RMSE (${esc(u)}): o‘rtacha kvadratik xato</span></div>
+    <div><b>${fx(m.mae,2)}</b><span>MAE (${esc(u)}): o‘rtacha absolyut xato</span></div>
+    <div><b>${fx(m.adj,4)}</b><span>tuzatilgan R²</span></div>
+    <div><b>${fx(m.mape,2)}${isFinite(m.mape)?'%':''}</b><span>o‘rtacha foizli xato</span></div>
+    <div><b>${fx(m.F,1)}</b><span>F-statistika (erkinlik darajasi ${m.k}; ${m.df})</span></div></div>
+    <div class="formula">R² = 1 − SSE/SST = 1 − ${fx(m.sse,2)} / ${fx(m.sst,2)} = ${m.r2.toFixed(6)}</div>
+    <p class="hint">SSE = Σ(y − ŷ)² — qolgan xato; SST = Σ(y − ȳ)² — narxlarning umumiy tarqoqligi. Bular o‘qitish ma’lumotidagi ko‘rsatkichlar: model o‘zi o‘rgangan avtomobillar bo‘yicha baholanmoqda, shuning uchun yangi avtomobillarda xato biroz kattaroq bo‘lishi mumkin.</p></div>`;
+  const lo=Math.min(...y,...m.yh), hi=Math.max(...y,...m.yh);
+  const avp=plot({x:[lo,hi],y:[lo,hi],xl:`Haqiqiy ${Sh(D.target)}`,yl:`Bashorat ${Sh(D.target)}`,label:'Haqiqiy va bashorat qilingan narxlar',
+    draw:(sx,sy)=>`<line x1="${sx(lo)}" y1="${sy(lo)}" x2="${sx(hi)}" y2="${sy(hi)}" style="stroke:var(--muted);stroke-dasharray:5 4"/>`+
+      y.map((v,i)=>`<circle cx="${sx(v)}" cy="${sy(m.yh[i])}" r="5.5" style="fill:var(--c3);fill-opacity:.85;stroke:var(--surface);stroke-width:1.2"><title>#${i+1}: haqiqiy ${fx(v)}, bashorat ${fx(m.yh[i])}</title></circle>`).join('')});
+  const rl=Math.max(...m.res.map(Math.abs))||1;
+  const rp=plot({x:[Math.min(...m.yh),Math.max(...m.yh)],y:[-rl,rl],xl:`Bashorat ${Sh(D.target)}`,yl:'Qoldiq (haqiqiy − bashorat)',label:'Qoldiqlar grafigi',
+    draw:(sx,sy,gg)=>`<line x1="${gg.m.l}" x2="${gg.W-gg.m.r}" y1="${sy(0)}" y2="${sy(0)}" style="stroke:var(--muted);stroke-dasharray:5 4"/>`+
+      m.res.map((e,i)=>`<circle cx="${sx(m.yh[i])}" cy="${sy(e)}" r="5.5" style="fill:${e>=0?'var(--pos)':'var(--neg)'};stroke:var(--surface);stroke-width:1.2"><title>#${i+1}: qoldiq ${fx(e,3)}</title></circle>`).join('')});
+  const imp=kept.map((j,i)=>[L(D.fnames[j]),m.gamma[i+1]/m.sy]), impMax=Math.max(...imp.map(x=>Math.abs(x[1])),.01);
+  const tbl=`<div class="scroll tall"><table><thead><tr><th>#</th><th>Haqiqiy</th><th>Bashorat</th><th>Xato</th><th>Xato %</th></tr></thead><tbody>${y.slice(0,MAXROWS).map((v,i)=>`<tr><td>${i+1}</td><td>${fx(v)}</td><td>${fx(m.yh[i])}</td><td>${fx(m.res[i],3)}</td><td>${v?fx(m.res[i]/v*100,2)+'%':'—'}</td></tr>`).join('')}</tbody></table></div>`;
+  ql.innerHTML=stats+
+    `<div class="grid2"><div class="panel"><h3>Haqiqiy va bashorat qiymatlar</h3><p class="hint">Punktir chiziq — mukammal bashorat. Nuqtalar unga qancha yaqin bo‘lsa, model shuncha aniq.</p>${avp}</div><div class="panel"><h3>Qoldiqlar</h3><p class="hint">Qoldiqlar 0 atrofida tasodifiy tarqalgan bo‘lsa, chiziqli model ma’lumotga mos keladi.</p>${rp}${legend([['var(--pos)','model kam baholagan'],['var(--neg)','model ortiq baholagan']])}</div></div>`+
+    `<div class="grid2"><div class="panel"><h3>Qaysi xususiyat muhimroq?</h3><p class="hint">Standartlangan koeffitsiyentlar (γ/σᵧ) bir xil shkalada, shuning uchun turli birlikdagi xususiyatlarni solishtirish mumkin.</p>${divBars(imp,impMax)}</div><div class="panel"><h3>Har bir avtomobil bo‘yicha xato</h3>${tbl}</div></div>`;
+}
+function buildRegShell(){
+  $('#reg-pred').innerHTML=Mdl.error?`<span class="err">${esc(Mdl.error)}</span>`:
+    `<div class="panel rcard" id="regcard"><div class="lbl">Bashorat qilingan ${esc(D.tn)}</div><div class="big"><span id="rg-n">—</span><span class="unit">${esc(D.unit)}</span></div><p class="hint" id="rg-meta" style="margin:0"></p><div id="rg-warn"></div><div id="rg-calc"></div></div>`;
+}
+function renderRegPred(first){
+  if(Mdl.error) return;
+  const m=Mdl, v=S.newv, yhat=predictReg(v), kept=m.kept;
+  const num=$('#rg-n'); if(first&&num) num.dataset.v='';
+  tween(num,yhat); if(!first) pulse($('#regcard'));
+  const diff=yhat-m.my;
+  $('#rg-meta').textContent=`Bu ma’lumotdagi o‘rtacha narxdan (${fx(m.my,2)}) ${fx(Math.abs(diff),2)} ${D.unit} ${diff>=0?'yuqori':'past'}. Modelning odatiy xatosi (RMSE): ±${fx(m.rmse,2)}.`;
+  $('#rg-warn').innerHTML=rangeWarn()+(yhat<=0?`<div class="warn">Model manfiy yoki nol narx qaytardi. To‘g‘ri chiziq faqat ma’lumot diapazoni ichida ishonchli.</div>`:'');
+  const contrib=kept.map((j,i)=>({nm:L(D.fnames[j]),b:m.beta[i+1],x:v[j],bx:m.beta[i+1]*v[j],d:m.beta[i+1]*(v[j]-m.mu[j])}));
+  $('#rg-calc').innerHTML=`<div class="formula">ŷ = ${fx(m.beta[0],4)}${contrib.map(c=>` ${c.b<0?'-':'+'} ${fx(Math.abs(c.b),4)}×${fx(c.x)}`).join('')} = <b>${fx(yhat,2)}</b></div>
+    <div class="scroll"><table><thead><tr><th>Had</th><th>β</th><th>x</th><th>β·x</th><th>o‘rtacha avtomobilga nisbatan</th></tr></thead><tbody><tr><td>kesishma β₀</td><td>${fx(m.beta[0],4)}</td><td>1</td><td>${fx(m.beta[0],2)}</td><td>—</td></tr>${contrib.map(c=>`<tr><td>${esc(c.nm)}</td><td>${fx(c.b,4)}</td><td>${fx(c.x)}</td><td>${fx(c.bx,2)}</td><td style="color:${c.d>=0?'var(--pos)':'var(--neg)'}">${c.d>=0?'+':''}${fx(c.d,2)}</td></tr>`).join('')}<tr class="hl"><td><b>Bashorat ŷ</b></td><td></td><td></td><td><b>${fx(yhat,2)}</b></td><td></td></tr></tbody></table></div>`;
+}
+
+/* ============================================================
+   k-NN bo‘limi
+   ============================================================ */
+function knnRun(newv,k,scale,skip=-1){
+  const f=Mdl.kept, tr=(v,j)=>scale?(v-Mdl.mu[j])/(Mdl.sd[j]||1):v, list=[];
+  D.X.forEach((r,i)=>{
+    if(i===skip) return;
+    const terms=f.map(j=>(tr(newv[j],j)-tr(r[j],j))**2);
+    list.push({i,d:Math.sqrt(terms.reduce((a,b)=>a+b,0)),terms,y:D.y[i],c:cls(D.y[i])});
+  });
+  list.sort((a,b)=>a.d-b.d);
+  const nb=list.slice(0,k), votes=[0,0,0]; nb.forEach(o=>votes[o.c]++);
+  const best=Math.max(...votes), c=nb.find(o=>votes[o.c]===best).c;   /* teng bo‘lsa, eng yaqin qo‘shni toifasi */
+  return {list,nb,votes,c,meanY:mean(nb.map(o=>o.y))};
+}
+function buildKnnCtl(){
+  if(!Mdl.kept.length){$('#knn-ctl').innerHTML='';return;}
+  const maxk=Math.min(15,D.n-1), idxs=Mdl.kept;
+  $('#knn-ctl').innerHTML=`
+   <div class="field"><label class="lab" for="kk"><span>Qo‘shnilar soni k</span><b id="kkv">${S.k}</b></label><input type="range" id="kk" min="1" max="${maxk}" value="${S.k}" style="width:100%"></div>
+   <div class="field"><label class="lab"><span>Masshtab</span></label><div class="checks"><label><input type="checkbox" id="kscale" ${S.scale?'checked':''}> Standartlash (z-ball)</label></div></div>
+   <div class="field"><label class="lab" for="kt1"><span>Arzon / O‘rta chegarasi</span><small>${esc(D.unit)}</small></label><input type="number" id="kt1" step="0.1" value="${S.t1}"></div>
+   <div class="field"><label class="lab" for="kt2"><span>O‘rta / Qimmat chegarasi</span><small>${esc(D.unit)}</small></label><input type="number" id="kt2" step="0.1" value="${S.t2}"></div>
+   <div class="field"><label class="lab" for="kax">Grafik: gorizontal o‘q</label>${axisSel('kax',S.kax,idxs)}</div>
+   <div class="field"><label class="lab" for="kay">Grafik: vertikal o‘q</label>${axisSel('kay',S.kay,idxs)}</div>`;
+  $('#kk').oninput=e=>{S.k=+e.target.value;$('#kkv').textContent=S.k;renderActive(false);};
+  $('#kscale').onchange=e=>{S.scale=e.target.checked;renderActive(false);};
+  $('#kt1').oninput=e=>{if(e.target.value!=='')S.t1=+e.target.value;renderActive(false);};
+  $('#kt2').oninput=e=>{if(e.target.value!=='')S.t2=+e.target.value;renderActive(false);};
+  $('#kax').onchange=e=>{S.kax=+e.target.value;renderActive(false);};
+  $('#kay').onchange=e=>{S.kay=+e.target.value;renderActive(false);};
+}
+function renderKnn(){
+  const box=$('#knn-out');
+  if(!Mdl.kept.length){box.innerHTML=`<span class="err">${esc(Mdl.error||'Xususiyat tanlanmagan.')}</span>`;return;}
+  if(S.t1>=S.t2){box.innerHTML='<span class="err">“Arzon / O‘rta” chegarasi “O‘rta / Qimmat” chegarasidan kichik bo‘lishi kerak.</span>';return;}
+  const f=Mdl.kept, fn=f.map(j=>L(D.fnames[j])), kn=knnRun(S.newv,S.k,S.scale), n=D.n;
+  const counts=[0,0,0]; D.y.forEach(v=>counts[cls(v)]++);
+  const res=`<div class="panel"><h3>Natija</h3>
+    <div class="stat"><div><b style="color:${CCOL[kn.c]}">${CLS[kn.c]}</b><span>narx toifasi (ko‘pchilik ovozi)</span></div><div><b>${fx(kn.meanY,2)}</b><span>qo‘shnilarning o‘rtacha narxi (${esc(D.unit)})</span></div><div><b>${S.k}</b><span>k</span></div></div>
+    <div class="vote">${kn.votes.map((v,c)=>v?`<div style="flex:${v};background:${CCOL[c]}">${CLS[c]}: ${v}</div>`:'').join('')}</div>
+    <p class="hint">Toifalar: Arzon &lt; ${S.t1}; O‘rta ${S.t1} dan ${S.t2} gacha; Qimmat ≥ ${S.t2} (${esc(D.unit)}). Ma’lumotda: ${counts.map((c,i)=>`${CLS[i]} — ${c} ta`).join(', ')}.</p>
+    ${rangeWarn()}${legend(CCOL.map((c,i)=>[c,CLS[i]]))}</div>`;
+  const ch=`<div class="panel"><h3>Qo‘shnilar grafikda</h3>${plot({
+    x:[D.mn[S.kax],D.mx[S.kax]],y:[D.mn[S.kay],D.mx[S.kay]],xl:L(D.fnames[S.kax]),yl:L(D.fnames[S.kay]),label:'k-NN: avtomobillar va qo‘shnilar',
+    draw:(sx,sy)=>{const nx=sx(S.newv[S.kax]),ny=sy(S.newv[S.kay]);
+      return kn.nb.map(o=>`<line x1="${nx}" y1="${ny}" x2="${sx(D.X[o.i][S.kax])}" y2="${sy(D.X[o.i][S.kay])}" style="stroke:var(--ink);stroke-opacity:.4;stroke-dasharray:4 3"/>`).join('')+
+      D.X.map((r,i)=>{const isN=kn.nb.some(o=>o.i===i), c=cls(D.y[i]);return `<circle cx="${sx(r[S.kax])}" cy="${sy(r[S.kay])}" r="${isN?8:5.5}" style="fill:${CCOL[c]};stroke:${isN?'var(--ink)':'var(--surface)'};stroke-width:${isN?2.5:1.2}"><title>#${i+1}: ${CLS[c]} (${fx(D.y[i])} ${esc(D.unit)})</title></circle>`}).join('')+star(nx,ny,12);}})}
+    ${legend([...CCOL.map((c,i)=>[c,CLS[i]]),['var(--ink)','Yangi avtomobil (yulduz)']])}
+    <p class="hint" style="margin-top:8px">Grafikda faqat tanlangan ikkita xususiyat ko‘rinadi, masofa esa barcha xususiyatlar bo‘yicha hisoblanadi. Qora halqa — k ta qo‘shni.</p></div>`;
+  const tbl=`<div class="scroll tall"><table><thead><tr><th>Tartib</th><th>#</th>${fn.map(c=>`<th>${esc(c)}</th>`).join('')}<th>${esc(D.tn)}</th><th>Toifa</th><th>Yevklid masofasi</th></tr></thead><tbody>${kn.list.slice(0,MAXROWS).map((o,r)=>`<tr class="${r<S.k?'hl':''}"><td>${r+1}</td><td>${o.i+1}</td>${f.map(j=>`<td>${fx(D.X[o.i][j])}</td>`).join('')}<td>${fx(o.y)}</td><td><span class="tag" style="background:${CCOL[o.c]}">${CLS[o.c]}</span></td><td>${o.d.toFixed(4)}</td></tr>`).join('')}</tbody></table></div><p class="hint" style="margin-top:8px">Sariq qatorlar — eng yaqin k ta qo‘shni.</p>`;
+  const first=kn.nb[0], tr=(v,j)=>S.scale?(v-Mdl.mu[j])/(Mdl.sd[j]||1):v;
+  const ex=`<p>Eng yaqin qo‘shni — #${first.i+1}-avtomobil. Masofa Yevklid formulasi bilan hisoblanadi: <b>d = √Σ(aⱼ − bⱼ)²</b>${S.scale?'; bunda har bir xususiyat z = (x − μ)/σ bilan standartlangan':'. Standartlash o‘chirilgan, shuning uchun masofani katta sonli xususiyat (masalan, probeg) deyarli yakka o‘zi belgilaydi'}.</p>
+    <div class="scroll"><table><thead><tr><th>Xususiyat</th><th>Yangi</th><th>Qo‘shni #${first.i+1}</th><th>Farq²</th></tr></thead><tbody>${f.map((j,q)=>`<tr><td>${esc(L(D.fnames[j]))}</td><td>${fx(tr(S.newv[j],j),3)}</td><td>${fx(tr(D.X[first.i][j],j),3)}</td><td>${fx(first.terms[q],4)}</td></tr>`).join('')}<tr><td><b>Yig‘indi</b></td><td></td><td></td><td><b>${fx(first.terms.reduce((a,b)=>a+b,0),4)}</b></td></tr><tr><td><b>d = √yig‘indi</b></td><td></td><td></td><td><b>${first.d.toFixed(4)}</b></td></tr></tbody></table></div>`;
+  let acc='';
+  if(n<=400){
+    const maxk=Math.min(9,n-1), a=[];
+    for(let k=1;k<=maxk;k++){let ok=0;for(let i=0;i<n;i++)ok+=knnRun(D.X[i],k,S.scale,i).c===cls(D.y[i])?1:0;a.push([`k=${k}`,ok/n*100]);}
+    acc=`<div class="panel"><h3>k ni tanlash</h3><p class="hint">Har bir avtomobilni qolganlariga qarab toifalab (bittasini chiqarib tashlash usuli) topilgan aniqlik. Joriy k ajratib ko‘rsatilgan.</p>${vbars(a,{active:S.k-1,fmt:v=>v.toFixed(0)+'%'})}
+    <p class="hint" style="margin-top:8px">Standartlash hozir ${S.scale?'yoqilgan':'o‘chirilgan'}. Uni almashtirib, aniqlik qanday o‘zgarishini ko‘ring.</p></div>`;
+  }
+  box.innerHTML=`<div class="grid2">${res}${ch}</div>`+det('knnTbl','a','Barcha avtomobillargacha masofalar (yaqinidan uzog‘iga)',tbl)+det('knnEx','b','Masofa hisobi: misol',ex)+acc;
+}
+
+/* ============================================================
+   K-means bo‘limi
+   ============================================================ */
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const kmZ=(r,f)=>f.map(j=>(r[j]-D.mn[j])/((D.mx[j]-D.mn[j])||1));      /* min–max normallashtirish */
+function kmRun(f,k,seed,maxIter){
+  const Z=D.X.map(r=>kmZ(r,f)), rnd=mulberry(seed*9973+k*31), init=[];
+  while(init.length<k){const i=Math.floor(rnd()*Z.length); if(!init.includes(i)) init.push(i);}
+  let C=init.map(i=>Z[i].slice()), prev=null; const its=[];
+  for(let t=0;t<maxIter;t++){
+    const dist=Z.map(z=>C.map(c=>Math.sqrt(z.reduce((s,v,j)=>s+(v-c[j])**2,0))));
+    const as=dist.map(d=>d.indexOf(Math.min(...d)));
+    const sse=as.reduce((s,a,i)=>s+dist[i][a]**2,0);
+    const NC=C.map((c,ci)=>{const m=[];as.forEach((a,i)=>{if(a===ci)m.push(i)});return m.length?c.map((_,j)=>mean(m.map(i=>Z[i][j]))):c.slice()});
+    const changed=prev?as.filter((a,i)=>a!==prev[i]).length:Z.length;
+    its.push({C,dist,as,sse,NC,changed});
+    if(prev&&changed===0) break;
+    prev=as; C=NC;
+  }
+  const last=its[its.length-1];
+  return {Z,its,init,converged:its.length>1&&last.changed===0};
+}
+let kmMemo={key:'',val:null};
+function kmState(){
+  const K=S.km; if(!K||!K.feats.length) return null;
+  const key=[D.id,K.feats.join(','),K.k,K.seed,K.maxIter].join('|');
+  let run; if(kmMemo.key===key) run=kmMemo.val; else {run=kmRun(K.feats,K.k,K.seed,K.maxIter);kmMemo={key,val:run};}
+  const last=run.its[run.its.length-1], nz=kmZ(S.newv,K.feats);
+  const dn=last.C.map(c=>Math.sqrt(nz.reduce((s,v,j)=>s+(v-c[j])**2,0)));
+  const newC=dn.indexOf(Math.min(...dn));
+  const members=last.C.map((_,c)=>{const m=[];last.as.forEach((a,i)=>{if(a===c)m.push(i)});return m;});
+  const prices=members.map(m=>m.map(i=>D.y[i]));
+  return {run,last,nz,dn,newC,members,prices,size:members.map(m=>m.length),
+          cMean:prices[newC].length?mean(prices[newC]):null,cMin:prices[newC].length?Math.min(...prices[newC]):null,cMax:prices[newC].length?Math.max(...prices[newC]):null};
+}
+function elbow(f){
+  const key=D.id+'|'+f.join(',');
+  if(S.elbow[key]) return S.elbow[key];
+  const out=[], maxk=Math.min(6,D.n-1);
+  for(let k=1;k<=maxk;k++){let best=Infinity;for(let s=1;s<=8;s++){const r=kmRun(f,k,s,50);best=Math.min(best,r.its[r.its.length-1].sse)}out.push(best)}
+  return S.elbow[key]=out;
+}
+function stopKm(){ if(kmTimer){clearInterval(kmTimer);kmTimer=null;} const b=$('#mplay'); if(b) b.textContent='▶ Avto ijro'; }
+function buildKmCtl(){
+  const K=S.km, kp=Mdl.kept;
+  if(!kp.length){$('#km-ctl').innerHTML='';return;}
+  $('#km-ctl').innerHTML=`
+   <div class="field"><label class="lab" for="mk"><span>Klasterlar soni k</span><b id="mkv">${K.k}</b></label><input type="range" id="mk" min="2" max="${Math.min(6,D.n-1)}" value="${K.k}" style="width:100%"></div>
+   <div class="field"><label class="lab" for="mmax"><span>Maksimal iteratsiyalar</span><b id="mmaxv">${K.maxIter}</b></label><input type="range" id="mmax" min="1" max="30" value="${K.maxIter}" style="width:100%"></div>
+   <div class="field"><label class="lab"><span>Klasterlash uchun xususiyatlar</span></label><div class="checks">${kp.map(j=>`<label><input type="checkbox" class="mf" value="${j}" ${K.feats.includes(j)?'checked':''}> ${esc(L(D.fnames[j]))}</label>`).join('')}</div></div>
+   <div class="field"><label class="lab"><span>Boshlang‘ich markazlar</span></label><button class="btn" id="mseed" type="button">Boshqasini tanlash</button></div>
+   <div class="field"><label class="lab" for="mit"><span>Iteratsiya</span><b id="mitv">${K.iter}</b></label><div class="row"><button class="btn" id="mprev" type="button" aria-label="Oldingi iteratsiya">‹</button><input type="range" id="mit" min="1" max="1" value="1"><button class="btn" id="mnext" type="button" aria-label="Keyingi iteratsiya">›</button></div></div>
+   <div class="field"><label class="lab"><span>Animatsiya</span></label><button class="btn primary" id="mplay" type="button">▶ Avto ijro</button></div>
+   <div class="field"><label class="lab" for="max">Grafik: gorizontal o‘q</label>${axisSel('max',K.ax,kp)}</div>
+   <div class="field"><label class="lab" for="may">Grafik: vertikal o‘q</label>${axisSel('may',K.ay,kp)}</div>`;
+  $('#mk').oninput=e=>{stopKm();K.k=+e.target.value;$('#mkv').textContent=K.k;K.iter=1;renderActive(false);};
+  $('#mmax').oninput=e=>{stopKm();K.maxIter=+e.target.value;$('#mmaxv').textContent=K.maxIter;K.iter=1;renderActive(false);};
+  $$('.mf').forEach(c=>c.onchange=()=>{stopKm();K.feats=$$('.mf').filter(x=>x.checked).map(x=>+x.value);K.iter=1;renderActive(false);});
+  $('#mseed').onclick=()=>{stopKm();K.seed++;K.iter=1;renderActive(false);};
+  $('#mit').oninput=e=>{stopKm();K.iter=+e.target.value;renderActive(false);};
+  $('#mprev').onclick=()=>{stopKm();K.iter=Math.max(1,K.iter-1);renderActive(false);};
+  $('#mnext').onclick=()=>{stopKm();K.iter=K.iter+1;renderActive(false);};
+  $('#max').onchange=e=>{K.ax=+e.target.value;renderActive(false);};
+  $('#may').onchange=e=>{K.ay=+e.target.value;renderActive(false);};
+  $('#mplay').onclick=()=>{
+    if(kmTimer){stopKm();return;}
+    K.iter=1; renderActive(false); $('#mplay').textContent='■ To‘xtatish';
+    kmTimer=setInterval(()=>{
+      const Tn=+$('#mit').max;
+      if(K.iter>=Tn){stopKm();return;}
+      K.iter++; renderActive(false);
+    },1000);
+  };
+}
+function renderKm(){
+  const box=$('#km-out'), K=S.km, fn=D.fnames;
+  const st=kmState();
+  if(!st){box.innerHTML='<span class="err">Kamida bitta xususiyatni belgilang.</span>';return;}
+  const {run,last,dn,newC,size,members,prices}=st, Tn=run.its.length;
+  if(K.iter>Tn) K.iter=Tn;
+  $('#mit').max=Tn; $('#mit').value=K.iter; $('#mitv').textContent=`${K.iter} / ${Tn}`;
+  const it=run.its[K.iter-1], isLast=K.iter===Tn, k=K.k;
+  const rawC=(c,j)=>{const ci=K.feats.indexOf(j); if(ci>=0) return D.mn[j]+c[ci]*(D.mx[j]-D.mn[j]); const idx=it.C.indexOf(c); const m=[]; it.as.forEach((a,i)=>{if(a===idx)m.push(D.X[i][j])}); return m.length?mean(m):mean(D.X.map(r=>r[j]));};
+  const ch=plot({x:[D.mn[K.ax],D.mx[K.ax]],y:[D.mn[K.ay],D.mx[K.ay]],xl:L(fn[K.ax]),yl:L(fn[K.ay]),label:`K-means, ${K.iter}-iteratsiya`,
+    draw:(sx,sy)=>D.X.map((r,i)=>`<circle cx="${sx(r[K.ax])}" cy="${sy(r[K.ay])}" r="5.5" style="fill:${KCOL[it.as[i]]};stroke:var(--surface);stroke-width:1.2"><title>#${i+1}: ${it.as[i]+1}-klaster</title></circle>`).join('')+
+      it.C.map((c,ci)=>diamond(sx(rawC(c,K.ax)),sy(rawC(c,K.ay)),9,KCOL[ci])).join('')+star(sx(S.newv[K.ax]),sy(S.newv[K.ay]),12)});
+  const prevAs=K.iter>1?run.its[K.iter-2].as:null;
+  const cols=it.C.map((_,c)=>`<th>d${sub(c+1)}</th>`).join('');
+  const tbl=`<p>${K.iter===1?'Markazlar tasodifiy tanlangan avtomobillardan olingan.':`Markazlar ${K.iter-1}-iteratsiyada yangilangan guruh o‘rtachalari.`} Masofa 0–1 oralig‘iga keltirilgan (min–maks) xususiyatlar bo‘yicha hisoblanadi: <b>d = √Σ(zⱼ − μⱼ)²</b>. Har bir avtomobil eng kichik masofali (qalin) markazga biriktiriladi.</p>
+   <div class="scroll tall"><table><thead><tr><th>#</th>${cols}<th>Klaster</th><th>Guruhi o‘zgardimi</th></tr></thead><tbody>${it.dist.slice(0,MAXROWS).map((d,i)=>{const mn=Math.min(...d), chg=prevAs?prevAs[i]!==it.as[i]:true;return `<tr class="${prevAs&&chg?'hl':''}"><td>${i+1}</td>${d.map(v=>`<td>${v===mn?`<b>${v.toFixed(3)}</b>`:v.toFixed(3)}</td>`).join('')}<td><span class="tag" style="background:${KCOL[it.as[i]]}">K${it.as[i]+1}</span></td><td>${prevAs?(chg?'ha':'yo‘q'):'—'}</td></tr>`}).join('')}</tbody></table></div>`;
+  const ctab=`<div class="scroll"><table><thead><tr><th>Klaster</th><th>Obyektlar</th>${K.feats.map(j=>`<th>${esc(L(fn[j]))}</th>`).join('')}</tr></thead><tbody>${it.C.map((c,ci)=>`<tr><td><span class="tag" style="background:${KCOL[ci]}">K${ci+1}</span></td><td>${it.as.filter(a=>a===ci).length}</td>${K.feats.map((j,q)=>`<td>${fx(D.mn[j]+it.NC[ci][q]*(D.mx[j]-D.mn[j]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="hint" style="margin-top:8px">Yangi markazlar — guruhdagi avtomobillarning o‘rtachasi (asl birliklarda). SSE = ${fx(it.sse,3)}; ${K.iter===1?'birinchi iteratsiya':`${it.changed} ta avtomobil guruhini o‘zgartirdi`}.</p>`;
+  const sses=run.its.map((x,i)=>[String(i+1),x.sse]);
+  const status=isLast?(run.converged?`<p class="ok">Bu oxirgi iteratsiya: guruhlar o‘zgarmadi, algoritm tugadi (yaqinlashdi).</p>`:`<p class="warn">Maksimal iteratsiya soniga (${K.maxIter}) yetildi, lekin guruhlar hali to‘liq barqarorlashmagan.</p>`):`<p class="hint">Keyingi iteratsiyaga o‘tish uchun “›” tugmasini bosing yoki “Avto ijro” ni ishga tushiring.</p>`;
+  const left=`<div class="panel"><h3>${K.iter}-iteratsiya</h3>${ch}${legend([...it.C.map((_,c)=>[KCOL[c],`${c+1}-klaster`]),['var(--ink)','Yangi avtomobil (yulduz), romb — markaz']])}<p class="hint" style="margin-top:8px">Grafikda faqat tanlangan ikkita xususiyat ko‘rinadi.</p>${status}</div>`;
+  const right=`<div class="panel"><h3>Markazlar (sentroidlar) va o‘lchamlar</h3>${ctab}<h3 style="margin-top:16px">Iteratsiyalar bo‘yicha SSE</h3><p class="hint">SSE — avtomobillarning o‘z markazigacha masofalari kvadratlari yig‘indisi. U kamayib borishi kerak.</p>${vbars(sses,{active:K.iter-1,fmt:v=>fx(v,2),h:150})}</div>`;
+  const sum=`<div class="scroll"><table><thead><tr><th>Klaster</th><th>Obyektlar</th>${fn.map(c=>`<th>${esc(L(c))}</th>`).join('')}<th>${esc(D.tn)}</th></tr></thead><tbody>${last.C.map((_,c)=>{const m=members[c];const mm=j=>m.length?mean(m.map(i=>D.X[i][j])):NaN;return `<tr class="${c===newC?'hl':''}"><td><span class="tag" style="background:${KCOL[c]}">K${c+1}</span></td><td>${m.length}</td>${fn.map((_,j)=>`<td>${fx(mm(j))}</td>`).join('')}<td>${m.length?fx(mean(prices[c])):'—'}</td></tr>`}).join('')}</tbody></table></div><p class="hint" style="margin-top:8px">Klasterlash narxga qaramasdan bajarildi; narx ustuni faqat guruhlarni tavsiflash uchun ko‘rsatilgan. Sariq qator — yangi avtomobil tushgan klaster.</p>`;
+  const newp=`<div class="panel"><h3>Yangi avtomobil qaysi klasterga tushadi?</h3>
+    <div class="stat"><div><b style="color:${KCOL[newC]}">${newC+1}-klaster</b><span>eng yaqin markaz</span></div><div><b>${dn[newC].toFixed(3)}</b><span>markazgacha masofa</span></div><div><b>${st.cMean===null?'—':fx(st.cMean,2)}</b><span>klasterning o‘rtacha narxi (${esc(D.unit)})</span></div></div>
+    <div class="scroll"><table><thead><tr><th>Markaz</th><th>Masofa</th></tr></thead><tbody>${dn.map((d,c)=>`<tr class="${c===newC?'hl':''}"><td><span class="tag" style="background:${KCOL[c]}">K${c+1}</span></td><td>${d.toFixed(4)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="hint" style="margin-top:8px">Yangi avtomobil ham shu min–maks masshtabda normallashtirilib, yakuniy markazlar bilan solishtiriladi.</p></div>`;
+  const el=elbow(K.feats).map((s,i)=>[`k=${i+1}`,s]);
+  const elb=`<div class="panel"><h3>k ni tanlash (tirsak usuli)</h3><p class="hint">Har bir k uchun yakuniy SSE (8 ta boshlang‘ich holatdan eng yaxshisi). Egri chiziq keskin sekinlashgan joy mos k ni ko‘rsatadi.</p>${vbars(el,{active:K.k-1,fmt:v=>fx(v,1)})}</div>`;
+  box.innerHTML=`<div class="grid2">${left}${right}</div>`+det('kmTable','a',`${K.iter}-iteratsiya: masofalar va guruhlar`,tbl)+`<div class="grid2">${newp}${elb}</div>`+det('kmSum','b','Yakuniy klasterlar tavsifi',sum);
+}
+
+/* ============================================================
+   Taqqoslash bo‘limi
+   ============================================================ */
+function buildCmpShell(){
+  $('#cmp-cards').innerHTML=`
+   <div class="panel rcard" id="cc-reg" style="--bar:linear-gradient(90deg,var(--c3),var(--accent2))"><div class="lbl">Chiziqli regressiya</div><div class="big"><span id="c-reg-n">—</span><span class="unit">${esc(D.unit)}</span></div><p class="hint" id="c-reg-s" style="margin:0"></p></div>
+   <div class="panel rcard" id="cc-knn" style="--bar:linear-gradient(90deg,var(--c1),var(--neg))"><div class="lbl">k-NN (qo‘shnilar)</div><div class="big"><span id="c-knn-c">—</span></div><p class="hint" id="c-knn-s" style="margin:0"></p></div>
+   <div class="panel rcard" id="cc-km" style="--bar:linear-gradient(90deg,var(--pos),var(--accent2))"><div class="lbl">K-means (klaster)</div><div class="big"><span id="c-km-c">—</span></div><p class="hint" id="c-km-s" style="margin:0"></p></div>`;
+}
+function estimates(){
+  const out=[];
+  const rg=Mdl.error?null:predictReg(S.newv);
+  const kn=Mdl.kept.length&&S.t1<S.t2?knnRun(S.newv,S.k,S.scale):null;
+  const km=kmState();
+  return {rg,kn,km};
+}
+function renderCmp(first){
+  const {rg,kn,km}=estimates(), u=D.unit, fm=Mdl.kept.map(j=>L(D.fnames[j]));
+  const set=(id,t)=>{const e=$(id); if(e) e.innerHTML=t;};
+  const rn=$('#c-reg-n'); if(first&&rn) rn.dataset.v='';
+  if(rg!==null){ tween(rn,rg); set('#c-reg-s',`Taxminiy xato: ±${fx(Mdl.rmse,2)} ${esc(u)} (RMSE). Toifa: <b>${CLS[cls(rg)]}</b>`); }
+  else { if(rn) rn.textContent='—'; set('#c-reg-s','Model qurilmadi.'); }
+  if(kn){ set('#c-knn-c',`<span style="color:${CCOL[kn.c]}">${CLS[kn.c]}</span>`); set('#c-knn-s',`O‘rtacha narx: <b>${fx(kn.meanY,2)}</b> ${esc(u)} (k = ${S.k}, ${kn.votes[kn.c]} ta ovoz)`); }
+  else { set('#c-knn-c','—'); set('#c-knn-s','Sozlamalarni tekshiring.'); }
+  if(km){ set('#c-km-c',`<span style="color:${KCOL[km.newC]}">${km.newC+1}-klaster</span>`); set('#c-km-s',`Klaster o‘rtacha narxi: <b>${km.cMean===null?'—':fx(km.cMean,2)}</b> ${esc(u)} (${km.size[km.newC]} ta avtomobil)`); }
+  else { set('#c-km-c','—'); set('#c-km-s','Xususiyat tanlang.'); }
+  if(!first){ pulse($('#cc-reg')); pulse($('#cc-knn')); pulse($('#cc-km')); }
+
+  const rows=[];
+  if(rg!==null) rows.push({nm:'Chiziqli regressiya',v:rg,lo:rg-Mdl.rmse,hi:rg+Mdl.rmse,col:'var(--c3)',note:'±RMSE oralig‘i'});
+  if(kn) rows.push({nm:'k-NN',v:kn.meanY,lo:Math.min(...kn.nb.map(o=>o.y)),hi:Math.max(...kn.nb.map(o=>o.y)),col:'var(--c1)',note:'qo‘shnilar narxi oralig‘i'});
+  if(km&&km.cMean!==null) rows.push({nm:'K-means',v:km.cMean,lo:km.cMin,hi:km.cMax,col:'var(--pos)',note:'klaster narxi oralig‘i'});
+  let chart='<span class="err">Taqqoslash uchun hech bo‘lmaganda bitta algoritm natijasi kerak.</span>';
+  if(rows.length){
+    let lo=Math.min(...D.y,...rows.map(r=>r.lo)), hi=Math.max(...D.y,...rows.map(r=>r.hi)); const pd=(hi-lo)*.04||1; lo-=pd; hi+=pd;
+    const W=620,Lm=120,rowH=64,top=26,bot=30,H=top+rows.length*rowH+bot, sx=v=>Lm+(v-lo)/(hi-lo)*(W-Lm-20);
+    const zones=[[lo,S.t1,0],[S.t1,S.t2,1],[S.t2,hi,2]];
+    let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Uch algoritm narx baholarini solishtirish">`;
+    zones.forEach(([a,b,c])=>{const x0=sx(Math.max(a,lo)),x1=sx(Math.min(b,hi)); if(x1>x0) s+=`<rect x="${x0}" y="${top-10}" width="${x1-x0}" height="${H-top-bot+14}" style="fill:${CCOL[c]};fill-opacity:.1"/><text x="${(x0+x1)/2}" y="${top-14}" text-anchor="middle">${CLS[c]}</text>`;});
+    ticks(lo,hi).forEach(v=>{s+=`<line x1="${sx(v)}" x2="${sx(v)}" y1="${top-10}" y2="${H-bot+4}" style="stroke:var(--line)"/><text x="${sx(v)}" y="${H-10}" text-anchor="middle">${fx(v,2)}</text>`;});
+    rows.forEach((r,i)=>{
+      const cy=top+i*rowH+26;
+      s+=`<text x="${Lm-10}" y="${cy+4}" text-anchor="end" class="v">${r.nm}</text>`;
+      s+=`<rect x="${sx(r.lo)}" y="${cy-9}" width="${Math.max(sx(r.hi)-sx(r.lo),3)}" height="18" rx="9" style="fill:${r.col};fill-opacity:.35"><title>${r.note}: ${fx(r.lo,2)} – ${fx(r.hi,2)}</title></rect>`;
+      s+=`<circle cx="${sx(r.v)}" cy="${cy}" r="9" style="fill:${r.col};stroke:var(--surface);stroke-width:2.5"><title>${r.nm}: ${fx(r.v,2)}</title></circle>`;
+      s+=`<text class="halo" x="${sx(r.v)}" y="${cy-16}" text-anchor="middle">${fx(r.v,1)}</text>`;
+    });
+    chart=s+'</svg>'+legend([['var(--c3)','Regressiya'],['var(--c1)','k-NN'],['var(--pos)','K-means']]);
+  }
+  const vals=rows.map(r=>r.v), spread=vals.length>1?Math.max(...vals)-Math.min(...vals):0;
+  const top=`<div class="panel"><h3>Narx baholarini ko‘rgazmali taqqoslash</h3>
+    <p class="hint">Doira — algoritmning narx bahosi, och rangli chiziq — uning ishonch oralig‘i (regressiyada ±RMSE, k-NN da qo‘shnilar narxlari, K-means da klaster narxlari). Orqadagi rangli bo‘laklar — Arzon, O‘rta va Qimmat toifalar chegaralari.</p>${chart}
+    ${rows.length>1?`<p class="hint" style="margin-top:8px">Baholar orasidagi eng katta farq: <b>${fx(spread,1)}</b> ${esc(u)}.</p>`:''}${rangeWarn()}</div>`;
+  const tb=`<div class="panel"><h3>Natijalar jadvali</h3><div class="scroll"><table class="left"><thead><tr><th>Algoritm</th><th>Javob turi</th><th>Javob</th><th>Narx bahosi (${esc(u)})</th><th>Toifa</th><th>Baho qanday olinadi</th></tr></thead><tbody>
+    <tr><td>Chiziqli regressiya</td><td>son</td><td>${rg===null?'—':fx(rg,2)}</td><td><b>${rg===null?'—':fx(rg,2)}</b></td><td>${rg===null?'—':`<span class="tag" style="background:${CCOL[cls(rg)]}">${CLS[cls(rg)]}</span>`}</td><td class="wrap2">ŷ = β₀ + Σβⱼxⱼ formulasiga qiymatlar qo‘yiladi</td></tr>
+    <tr><td>k-NN (k = ${S.k})</td><td>toifa</td><td>${kn?`<span class="tag" style="background:${CCOL[kn.c]}">${CLS[kn.c]}</span>`:'—'}</td><td><b>${kn?fx(kn.meanY,2):'—'}</b></td><td>${kn?`<span class="tag" style="background:${CCOL[cls(kn.meanY)]}">${CLS[cls(kn.meanY)]}</span>`:'—'}</td><td class="wrap2">${S.k} ta eng yaqin qo‘shni narxining o‘rtachasi</td></tr>
+    <tr><td>K-means (k = ${S.km.k})</td><td>guruh</td><td>${km?`<span class="tag" style="background:${KCOL[km.newC]}">${km.newC+1}-klaster</span>`:'—'}</td><td><b>${km&&km.cMean!==null?fx(km.cMean,2):'—'}</b></td><td>${km&&km.cMean!==null?`<span class="tag" style="background:${CCOL[cls(km.cMean)]}">${CLS[cls(km.cMean)]}</span>`:'—'}</td><td class="wrap2">Yangi avtomobil tushgan klasterdagi avtomobillar narxining o‘rtachasi</td></tr>
+    </tbody></table></div>
+    <p class="hint" style="margin-top:8px">Regressiya aniq formula beradi. k-NN va K-means esa o‘xshash avtomobillar o‘rtachasini beradi, shuning uchun g‘ayrioddiy qiymatlarda (masalan, ma’lumotdan tashqarida) regressiyadan sezilarli farq qilishi mumkin.</p></div>`;
+  const kq=(()=>{ if(n_ok()) {let ok=0;for(let i=0;i<D.n;i++)ok+=knnRun(D.X[i],S.k,S.scale,i).c===cls(D.y[i])?1:0;return `${(ok/D.n*100).toFixed(0)}%`;} return '—'; })();
+  const how=`<div class="panel"><h3>Algoritmlar farqi</h3><div class="scroll"><table class="left"><thead><tr><th></th><th>Chiziqli regressiya</th><th>k-NN</th><th>K-means</th></tr></thead><tbody>
+    <tr><td>O‘rganish turi</td><td>nazoratli</td><td>nazoratli</td><td>nazoratsiz</td></tr>
+    <tr><td>Masala</td><td>regressiya (son)</td><td>klassifikatsiya (toifa)</td><td>klasterlash (guruh)</td></tr>
+    <tr><td>Natija ustuni kerakmi?</td><td>ha</td><td>ha (toifa sifatida)</td><td>yo‘q</td></tr>
+    <tr><td>Model nimadan iborat?</td><td>koeffitsiyentlar β</td><td>xotiradagi ma’lumot</td><td>k ta markaz</td></tr>
+    <tr><td>Asosiy parametrlar</td><td>yo‘q</td><td>k, standartlash</td><td>k, boshlang‘ich markazlar</td></tr>
+    <tr><td>Baholash</td><td>R², RMSE, MAE</td><td>aniqlik (accuracy)</td><td>SSE, tirsak usuli</td></tr>
+    <tr><td>Joriy ko‘rsatkich</td><td>${Mdl.error?'—':'R² = '+Mdl.r2.toFixed(3)}</td><td>${kq}</td><td>${km?'SSE = '+fx(km.last.sse,2):'—'}</td></tr>
+    </tbody></table></div></div>`;
+  $('#cmp-out').innerHTML=top+tb+how;
+}
+function n_ok(){ return Mdl.kept.length>0 && D.n<=400 && S.t1<S.t2; }
+
+/* ============================================================
+   Algoritmlar haqida (nazariya)
+   ============================================================ */
+function diagReg(){
+  const pts=[[1,2.1],[2,3.4],[3,3.3],[4,5.1],[5,5.6],[6,7.3],[7,7.0],[8,8.9]], b0=1.0, b1=1.0;
+  return plot({x:[0.5,8.5],y:[0,10],xl:'xususiyat x (masalan, avtomobil yoshi teskarisi)',yl:'narx y',label:'Regressiya chizig‘i va qoldiqlar',h:280,
+    draw:(sx,sy)=>pts.map(([x,y])=>`<line x1="${sx(x)}" x2="${sx(x)}" y1="${sy(y)}" y2="${sy(b0+b1*x)}" style="stroke:var(--neg);stroke-width:2"/>`).join('')+
+      `<line x1="${sx(0.5)}" y1="${sy(b0+b1*0.5)}" x2="${sx(8.5)}" y2="${sy(b0+b1*8.5)}" style="stroke:var(--accent);stroke-width:3"/>`+
+      pts.map(([x,y])=>`<circle cx="${sx(x)}" cy="${sy(y)}" r="6" style="fill:var(--c3);stroke:var(--surface);stroke-width:1.5"/>`).join('')});
+}
+function diagKnn(){
+  const A=[[2,2],[2.6,3.1],[1.6,3.4],[3.1,1.8]], B=[[7,7.2],[6.4,6.1],[7.8,6.4],[6.9,8.2]], C=[[7.2,2.4],[8.1,3.2],[6.5,3.3],[7.7,1.6]];
+  const q=[4.6,4.2], all=[...A.map(p=>[p,0]),...B.map(p=>[p,2]),...C.map(p=>[p,1])];
+  const dist=([p])=>Math.hypot(p[0]-q[0],p[1]-q[1]), nb=[...all].sort((a,b)=>dist(a)-dist(b)).slice(0,3), rad=dist(nb[2]);
+  return plot({x:[0,10],y:[0,10],xl:'xususiyat 1',yl:'xususiyat 2',label:'k-NN: yangi nuqta va uch qo‘shni',h:280,
+    draw:(sx,sy)=>`<circle cx="${sx(q[0])}" cy="${sy(q[1])}" r="${Math.abs(sx(rad)-sx(0))}" style="fill:var(--accent);fill-opacity:.08;stroke:var(--accent);stroke-dasharray:5 4"/>`+
+      all.map(([p,c])=>`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="6.5" style="fill:${CCOL[c]};stroke:${nb.some(n=>n[0]===p)?'var(--ink)':'var(--surface)'};stroke-width:${nb.some(n=>n[0]===p)?2.5:1.5}"/>`).join('')+star(sx(q[0]),sy(q[1]),13)});
+}
+function diagKm(){
+  const rnd=mulberry(7), blobs=[[2.5,2.8,0],[7.2,3,1],[5,7.6,2]], pts=[];
+  blobs.forEach(([cx,cy,c])=>{for(let i=0;i<8;i++)pts.push([cx+(rnd()-.5)*2.6,cy+(rnd()-.5)*2.6,c]);});
+  return plot({x:[0,10],y:[0,10],xl:'xususiyat 1',yl:'xususiyat 2',label:'K-means: uch guruh va ularning markazlari',h:280,
+    draw:(sx,sy)=>pts.map(([x,y,c])=>`<circle cx="${sx(x)}" cy="${sy(y)}" r="5.5" style="fill:${KCOL[c]};stroke:var(--surface);stroke-width:1.2"/>`).join('')+
+      blobs.map(([cx,cy,c])=>{const m=pts.filter(p=>p[2]===c);return diamond(sx(mean(m.map(p=>p[0]))),sy(mean(m.map(p=>p[1]))),10,KCOL[c]);}).join('')});
+}
+function renderTheory(){
+  const pc=(g,b)=>`<div class="pros"><div class="good"><b>Afzalliklari</b><ul>${g.map(x=>`<li>${x}</li>`).join('')}</ul></div><div class="bad"><b>Kamchiliklari</b><ul>${b.map(x=>`<li>${x}</li>`).join('')}</ul></div></div>`;
+  const reg=`<div class="grid2"><div class="prose">
+    <h4>G‘oya</h4><p>Chiziqli regressiya natijani (bizda — avtomobil narxi) xususiyatlarning <b>vaznli yig‘indisi</b> sifatida yozadi. Har bir koeffitsiyent «bu xususiyat bir birlikka oshsa, narx qanchaga o‘zgaradi?» degan savolga javob beradi.</p>
+    <div class="formula">ŷ = β₀ + β₁x₁ + β₂x₂ + … + βₚxₚ</div>
+    <h4>Qadamlar</h4><ol>
+      <li>Ma’lumot <b>X</b> matritsa (xususiyatlar, birinchi ustun — 1 lar) va <b>y</b> vektor (narxlar) ko‘rinishiga keltiriladi.</li>
+      <li>Xatolar kvadratlari yig‘indisi <b>SSE = Σ(y − ŷ)²</b> eng kichik bo‘ladigan β qidiriladi (eng kichik kvadratlar usuli).</li>
+      <li>SSE ning hosilasi nolga tenglashtiriladi va <b>normal tenglama</b> chiqadi: <b>(XᵀX)β = Xᵀy</b>.</li>
+      <li>Yechim: <b>β = (XᵀX)⁻¹Xᵀy</b>. Bu loyihada hisob barqaror bo‘lishi uchun xususiyatlar avval standartlanadi.</li>
+      <li>Sifat <b>R²</b>, <b>RMSE</b> va <b>MAE</b> bilan baholanadi.</li></ol>
+    <h4>Multikollinearlik nima?</h4><p>Agar bitta xususiyat boshqalaridan aniq hisoblansa (bizda <b>yosh = 2026 − yil</b>), XᵀX matritsasi teskarilanmaydi va tenglamaning yagona yechimi bo‘lmaydi. Shuning uchun dastur bunday ustunni avtomatik aniqlab, modeldan chiqaradi.</p>
+    ${pc(['Juda tez hisoblanadi','Koeffitsiyentlar tushunarli va izohlanadi','Kichik ma’lumotda ham ishlaydi'],['Faqat chiziqli bog‘liqlikni topadi','Chetga chiqqan qiymatlarga sezgir','Ma’lumot diapazonidan tashqarida ishonchsiz'])}
+    </div><div class="panel"><h3>Chizma</h3><p class="hint">Ko‘k nuqtalar — avtomobillar, to‘g‘ri chiziq — model, qizil kesmalar — xatolar (qoldiqlar). Chiziq shu kesmalar kvadratlari yig‘indisini eng kichik qiladi.</p>${diagReg()}</div></div>`;
+  const knn=`<div class="grid2"><div class="prose">
+    <h4>G‘oya</h4><p>«O‘xshash avtomobillarning narxi ham o‘xshash bo‘ladi.» k-NN modelni oldindan «o‘rgatmaydi»: yangi avtomobil kelganda uning eng yaqin <b>k</b> ta qo‘shnisini topadi va ularning javobiga qaraydi. Toifalash uchun — ko‘pchilik ovoz, narx bahosi uchun — o‘rtacha narx olinadi.</p>
+    <div class="formula">d(a, b) = √( (a₁−b₁)² + (a₂−b₂)² + … + (aₚ−bₚ)² )</div>
+    <h4>Qadamlar</h4><ol>
+      <li>Yangi avtomobildan har bir avtomobilgacha <b>Yevklid masofasi</b> hisoblanadi.</li>
+      <li>Masofalar o‘sish tartibida saralanadi.</li>
+      <li>Eng yaqin <b>k</b> ta qo‘shni olinadi.</li>
+      <li>Qo‘shnilar orasida ko‘pchilik toifa (Arzon, O‘rta, Qimmat) va o‘rtacha narx topiladi.</li></ol>
+    <h4>Nega standartlash kerak?</h4><p>Probeg yuz minglab km, dvigatel hajmi esa 1–3 litr. Standartlamasak, masofani deyarli faqat probeg belgilaydi. <b>z = (x − μ) / σ</b> barcha xususiyatlarni teng huquqli qiladi.</p>
+    <h4>k ni qanday tanlash kerak?</h4><p>Kichik k shovqinga sezgir (bitta g‘alati avtomobil natijani buzadi), katta k esa haddan tashqari silliq javob beradi. Eng yaxshi k ni “bittasini chiqarib tashlash” usuli bilan tekshirish mumkin.</p>
+    ${pc(['Juda sodda va tushunarli','Chiziqli bo‘lmagan bog‘liqlikni ham topadi','O‘qitish bosqichi yo‘q'],['Har bir bashoratda barcha ma’lumot bilan hisoblanadi','Xususiyatlar masshtabiga sezgir','Ortiqcha xususiyatlar natijani yomonlashtiradi'])}
+    </div><div class="panel"><h3>Chizma</h3><p class="hint">Yulduz — yangi avtomobil. Punktir doira ichidagi 3 ta qo‘shni (qora halqali) ovoz beradi: bu yerda ko‘pchilik qaysi rangda bo‘lsa, yangi avtomobil shu toifaga kiradi.</p>${diagKnn()}${legend(CCOL.map((c,i)=>[c,CLS[i]]))}</div></div>`;
+  const km=`<div class="grid2"><div class="prose">
+    <h4>G‘oya</h4><p>K-means <b>nazoratsiz</b> algoritm: unga narx (javob) berilmaydi. U faqat xususiyatlarga qarab, bir-biriga o‘xshash avtomobillarni <b>k</b> ta guruhga (klasterga) ajratadi. Har bir guruh o‘z <b>markazi (sentroidi)</b> bilan ifodalanadi.</p>
+    <div class="formula">SSE = Σ ‖xᵢ − μ<sub>c(i)</sub>‖²  →  min</div>
+    <h4>Qadamlar</h4><ol>
+      <li>k ta boshlang‘ich markaz tanlanadi (bu yerda tasodifiy avtomobillar).</li>
+      <li>Har bir avtomobil <b>eng yaqin markazga</b> biriktiriladi.</li>
+      <li>Har bir markaz o‘z guruhidagi avtomobillarning <b>o‘rtachasiga</b> ko‘chiriladi.</li>
+      <li>2- va 3-qadamlar guruhlar o‘zgarmay qolguncha (yoki maksimal iteratsiyaga yetguncha) takrorlanadi.</li></ol>
+    <h4>Normallashtirish</h4><p>Xususiyatlar <b>x′ = (x − min) / (maks − min)</b> bilan 0–1 oralig‘iga keltiriladi, aks holda katta sonli xususiyat guruhlashni yakka o‘zi belgilab qo‘yadi.</p>
+    <h4>k ni qanday tanlash kerak?</h4><p><b>Tirsak usuli</b>: har bir k uchun SSE hisoblanadi. SSE k oshgani sari kamayadi, lekin ma’lum joydan keyin kamayish sekinlashadi, grafik «tirsak» hosil qiladi. Shu nuqta mos k hisoblanadi. Boshlang‘ich markazlar natijaga ta’sir qilgani uchun bir necha marta urinib ko‘rish foydali.</p>
+    ${pc(['Natija ustuni kerak emas','Tez ishlaydi va tushunarli','Ma’lumotdagi yashirin guruhlarni ochadi'],['k ni oldindan tanlash kerak','Boshlang‘ich markazlarga sezgir','Sharsimon, o‘lchami o‘xshash guruhlarni yaxshi topadi, murakkab shakllarni esa yomon'])}
+    </div><div class="panel"><h3>Chizma</h3><p class="hint">Nuqtalar uchta guruhga ajratilgan, romblar — guruh markazlari. Algoritm shu markazlarni iteratsiyalar davomida to‘g‘ri joyga suradi.</p>${diagKm()}${legend([[KCOL[0],'1-klaster'],[KCOL[1],'2-klaster'],[KCOL[2],'3-klaster']])}</div></div>`;
+  const gl=`<div class="panel"><h3>Asosiy tushunchalar</h3><div class="scroll"><table class="left"><thead><tr><th>Atama</th><th>Ma’nosi</th></tr></thead><tbody>
+    <tr><td><b>Xususiyat</b></td><td class="wrap2">Avtomobilni tavsiflovchi kiruvchi qiymat (yil, probeg, dvigatel hajmi, ot kuchi).</td></tr>
+    <tr><td><b>Natija</b></td><td class="wrap2">Biz bashorat qiladigan qiymat — avtomobil narxi.</td></tr>
+    <tr><td><b>Nazoratli o‘rganish</b></td><td class="wrap2">Model javobi ma’lum misollardan o‘rganadi (regressiya, k-NN).</td></tr>
+    <tr><td><b>Nazoratsiz o‘rganish</b></td><td class="wrap2">Javob berilmaydi, model ma’lumot tuzilishini o‘zi topadi (K-means).</td></tr>
+    <tr><td><b>Standartlash (z-ball)</b></td><td class="wrap2">z = (x − μ)/σ: o‘rtacha 0, standart og‘ish 1 bo‘ladi. Turli birlikdagi xususiyatlarni solishtirish imkonini beradi.</td></tr>
+    <tr><td><b>Yevklid masofasi</b></td><td class="wrap2">Ikki nuqta orasidagi «to‘g‘ri chiziq» masofasi. k-NN va K-means da o‘xshashlik o‘lchovi.</td></tr>
+    <tr><td><b>R²</b></td><td class="wrap2">Narx o‘zgarishining qancha qismini model tushuntirishi (0 dan 1 gacha). 1 ga qanchalik yaqin bo‘lsa, shuncha yaxshi.</td></tr>
+    <tr><td><b>RMSE</b></td><td class="wrap2">O‘rtacha kvadratik xato: √(SSE/n). Narx birligida o‘lchanadi, katta xatolarni ko‘proq jazolaydi.</td></tr>
+    <tr><td><b>MAE</b></td><td class="wrap2">O‘rtacha absolyut xato: Σ|y − ŷ|/n. Modelning odatiy xatosini ko‘rsatadi.</td></tr>
+    <tr><td><b>SSE</b></td><td class="wrap2">Xatolar kvadratlari yig‘indisi. Regressiyada xato o‘lchovi, K-means da guruh zichligi o‘lchovi.</td></tr>
+    <tr><td><b>Multikollinearlik</b></td><td class="wrap2">Xususiyatlarning bir-biri bilan kuchli yoki to‘liq bog‘lanishi. To‘liq bo‘lsa, normal tenglamani yechib bo‘lmaydi.</td></tr>
+    <tr><td><b>Ekstrapolyatsiya</b></td><td class="wrap2">Model o‘rgangan diapazondan tashqarida bashorat qilish. Bunday natijaga ishonib bo‘lmaydi.</td></tr>
+    </tbody></table></div></div>`;
+  $('#theory-out').innerHTML=det('th1','1','Ko‘p o‘zgaruvchili chiziqli regressiya',reg)+det('th2','2','k-NN: k ta eng yaqin qo‘shni',knn)+det('th3','3','K-means: klasterlash',km)+gl;
+}
+
+/* ============================================================
+   Navigatsiya, fayl o‘qish, rejim
+   ============================================================ */
+function renderActive(first){
+  if(!D||!Mdl) return;
+  if(activeTab==='reg') renderRegPred(first);
+  else if(activeTab==='knn') renderKnn();
+  else if(activeTab==='km') renderKm();
+  else if(activeTab==='cmp') renderCmp(first);
+}
+function setTab(t,focus){
+  if(t!==activeTab) stopKm();
+  activeTab=t;
+  $$('.tab').forEach(b=>{const on=b.dataset.tab===t;b.setAttribute('aria-selected',on);b.tabIndex=on?0:-1;if(on&&focus)b.focus();});
+  $$('section.view').forEach(s=>{const on=s.id==='v-'+t;s.hidden=!on;s.classList.remove('enter');if(on){void s.offsetWidth;s.classList.add('enter');}});
+  renderActive(true);
+  window.scrollTo({top:0,behavior:reduceMotion?'auto':'smooth'});
+}
+$$('.tab').forEach(b=>{
+  b.addEventListener('click',()=>setTab(b.dataset.tab));
+  b.addEventListener('keydown',e=>{
+    const tabs=$$('.tab'),i=tabs.indexOf(b);
+    if(e.key==='ArrowRight'){e.preventDefault();setTab(tabs[(i+1)%tabs.length].dataset.tab,true);}
+    if(e.key==='ArrowLeft'){e.preventDefault();setTab(tabs[(i-1+tabs.length)%tabs.length].dataset.tab,true);}
+  });
+});
+function readFile(f){
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>loadData(String(r.result),f.name);
+  r.onerror=()=>{$('#loaderr').innerHTML='<span class="err">Faylni o‘qib bo‘lmadi.</span>';};
+  r.readAsText(f);
+}
+$('#file').addEventListener('change',e=>{readFile(e.target.files[0]);e.target.value='';});
+const drop=$('#drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>readFile(e.dataTransfer.files[0]));
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>e.preventDefault());
+$('#resetdata').addEventListener('click',()=>loadData(DEFAULT_CSV,'O‘rnatilgan namuna (01_car_prices.csv)'));
+function applyTheme(t){
+  document.documentElement.dataset.theme=t;
+  $('#themeicon').textContent=t==='dark'?'☀':'☾';
+  $('#themebtn').setAttribute('aria-pressed',t==='dark');
+}
+$('#themebtn').addEventListener('click',()=>{
+  const cur=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  const next=cur==='dark'?'light':'dark';
+  applyTheme(next);
+  try{localStorage.setItem('avto-narx-theme',next);}catch(_){}
+});
+try{const t=localStorage.getItem('avto-narx-theme');if(t)applyTheme(t);else if(matchMedia('(prefers-color-scheme: dark)').matches)$('#themeicon').textContent='☀';}catch(_){}
+
+renderTheory();
+loadData(DEFAULT_CSV,'O‘rnatilgan namuna (01_car_prices.csv)');
+</script>
+</body>
+</html>
